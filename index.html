@@ -103,9 +103,13 @@
 .sl b{font:600 11px "Pretendard",sans-serif;color:var(--p-accent);text-align:right}
 /* 사진 표시 (크기/위치 조절용) */
 .adj .img{overflow:hidden}
-.adj .img::before{content:"";position:absolute;inset:0;pointer-events:none;
-  background:var(--img) center/cover no-repeat;transform:translate(var(--tx,0%),var(--ty,0%)) scale(var(--z,1))}
-.adj .img[data-fit="contain"]::before{background-size:contain}
+.adj .img:not(.empty){container-type:size}
+/* 사진 전체를 칸에 꽉 차는 크기로 깔고(--iw × --ih), 확대(--z)·이동(--fx, --fy: -1~1) 해요 */
+.adj .img::before{content:"";position:absolute;pointer-events:none;
+  --iw:max(100cqw, calc(var(--ar,1) * 100cqh)); --ih:max(100cqh, calc(100cqw / var(--ar,1)));
+  width:var(--iw);height:var(--ih);left:calc((100cqw - var(--iw)) / 2);top:calc((100cqh - var(--ih)) / 2);
+  background:var(--img) center/100% 100% no-repeat;
+  transform:translate(calc(var(--fx,0) * (var(--z,1) * var(--iw) - 100cqw) / 2), calc(var(--fy,0) * (var(--z,1) * var(--ih) - 100cqh) / 2)) scale(var(--z,1))}
 .adj .img[data-flt="bright"]::before{filter:brightness(1.12) saturate(1.06)}
 .adj .img[data-flt="dark"]::before{filter:brightness(.78)}
 .adj .img[data-flt="vivid"]::before{filter:contrast(1.15) saturate(1.35)}
@@ -115,7 +119,7 @@
 .adj .img[data-flt="vintage"]::before{filter:sepia(.35) contrast(.9) brightness(1.05) saturate(.8)}
 .adj .img[data-flt="cool"]::before{filter:hue-rotate(-12deg) saturate(1.1) brightness(1.03)}
 .adj .img[data-flt="warm"]::before{filter:sepia(.25) saturate(1.25) hue-rotate(-8deg)}
-.adj .img[data-flt="blur"]::before{filter:blur(4px);inset:-8px}
+.adj .img[data-flt="blur"]::before{filter:blur(4px)}
 .img.sel{outline:3px dashed var(--accent);outline-offset:-6px}
 [hidden]{display:none !important}
 
@@ -202,6 +206,9 @@
 .guide.sv .v,.guide.sh .h{opacity:1}
 .guide::after{content:"";position:absolute;inset:0;outline:1.5px solid rgba(255,79,160,.35);outline-offset:-1.5px}
 .adj .img[data-up]:not(.empty){touch-action:none}
+
+/* 되돌리기 버튼 */
+.dock .btn.ic{flex:0 0 40px;padding:10px 0;font-size:16px}
 
 </style>
 <style>
@@ -367,7 +374,7 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
 .pairs{counter-reset:pr;display:grid;gap:14px;grid-auto-rows:250px;grid-template-columns:repeat(4,1fr)}
 .pairs[data-n="1"]{grid-template-columns:1fr}
 .pairs[data-n="2"]{grid-template-columns:repeat(2,1fr)}
-.pairs[data-n="3"]{grid-template-columns:repeat(3,1fr)}
+.pairs[data-n="3"],.pairs[data-n="5"],.pairs[data-n="6"]{grid-template-columns:repeat(3,1fr)}
 .pair{counter-increment:pr;position:relative;min-height:0;border-radius:24px;overflow:hidden;overflow:clip;box-shadow:0 16px 32px -22px rgba(40,40,110,.5)}
 .pair::before{content:"No." counter(pr,decimal-leading-zero);position:absolute;left:12px;top:12px;z-index:4;pointer-events:none;
   font:600 11px var(--en);letter-spacing:.06em;color:var(--accent);background:var(--box);padding:4px 9px;border-radius:20px;opacity:.95}
@@ -604,12 +611,10 @@ $('#panel').innerHTML = `
       <button class="btn" id="covDel">사진 지우기</button>
     </div>
     <div id="covCtl">
-      <p class="sub">사진 맞춤</p>
-      <div class="row seg" id="covFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
       <label class="sl"><span>상하</span><input type="range" id="covY" min="-100" max="100" step="1"><b id="covYv"></b></label>
       <label class="sl"><span>좌우</span><input type="range" id="covX" min="-100" max="100" step="1"><b id="covXv"></b></label>
-      <label class="sl"><span>크기</span><input type="range" id="covZ" min="50" max="300" step="1"><b id="covZv"></b></label>
-      <p class="hint" style="margin-top:4px">헤더 사진을 직접 끌어서 원하는 곳에 옮기거나, 휠로 확대할 수 있어요. 가운데에 오면 중앙선이 떠요.</p>
+      <label class="sl"><span>크기</span><input type="range" id="covZ" min="100" max="400" step="1"><b id="covZv"></b></label>
+      <p class="hint" style="margin-top:4px">헤더 사진을 직접 끌어서 옮기거나, 휠로 확대·축소할 수 있어요. 가장 작게 줄여도 칸은 꽉 차 있고, 가운데에 오면 중앙선이 떠요.</p>
       <p class="sub">보정</p><div class="fltgrid" id="covFlt">${btns(FILTERS,'v')}</div>
       <p class="sub">색 덮기</p><div class="fltgrid" id="covTint">${btns(TINTS,'v')}</div>
     </div>
@@ -626,10 +631,9 @@ $('#panel').innerHTML = `
   <section class="grp" data-g="photo"><h4>사진 조절 <span class="n" id="adjWho"></span></h4><div class="gb">
     <p class="hint" id="adjHint" style="margin-top:0">프로필이나 페어 사진을 클릭하면 여기서 조절할 수 있어요.</p>
     <div id="adjCtl" hidden>
-      <div class="row seg" id="adjFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
       <label class="sl"><span>상하</span><input type="range" id="adjY" min="-100" max="100" step="1"><b id="adjYv"></b></label>
       <label class="sl"><span>좌우</span><input type="range" id="adjX" min="-100" max="100" step="1"><b id="adjXv"></b></label>
-      <label class="sl"><span>크기</span><input type="range" id="adjZ" min="50" max="300" step="1"><b id="adjZv"></b></label>
+      <label class="sl"><span>크기</span><input type="range" id="adjZ" min="100" max="400" step="1"><b id="adjZv"></b></label>
       <p class="sub">보정</p><div class="fltgrid" id="adjFlt">${btns(FILTERS,'v')}</div>
       <div class="row" style="margin-top:10px"><button class="btn" id="adjSwap">사진 바꾸기</button><button class="btn" id="adjReset">원래대로</button></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="adjDel">사진 지우기</button><button class="btn pri" id="adjDone">선택 끝</button></div>
@@ -668,10 +672,12 @@ $('#panel').innerHTML = `
   <section class="grp" data-g="pair"><h4>페어 <span class="n" id="pairN"></span></h4><div class="gb">
     <div class="row seg" id="pairMode" style="margin-bottom:6px">${btns([['duo','A × B 나눠서'],['one','이미지 1장']],'v')}</div>
     <div class="row"><button class="btn" id="pairMinus">− 줄이기</button><button class="btn" id="pairPlus">+ 늘리기</button></div>
-    <p class="hint">한 줄에 4개씩 아래로 늘어나요. 개수 제한은 없어요. 카드에 마우스를 올리면 ✕로 원하는 페어만 지울 수 있어요.</p>
+    <p class="hint">4개까지 한 줄, 5~6개는 3개씩 두 줄, 7~8개는 4개씩 두 줄, 그 뒤로는 4개씩 아래로 늘어나요. 개수 제한은 없어요. 카드에 마우스를 올리면 ✕로 원하는 페어만 지울 수 있어요.</p>
   </div></section>
 
   <div class="dock">
+    <button class="btn ic" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
+    <button class="btn ic" id="redo" title="다시 하기 (Ctrl+Shift+Z)">↷</button>
     <button class="btn pri" id="save">↓ PNG 저장</button>
     <button class="btn" id="reset" title="처음 상태로 되돌리기">초기화</button>
   </div>`;
@@ -724,23 +730,32 @@ card.querySelectorAll('[contenteditable] img').forEach(i => i.replaceWith(docume
 card.querySelectorAll('.img').forEach(el => ['--x','--y','--px','--py'].forEach(k => el.style.removeProperty(k)));
 card.querySelectorAll('.guide').forEach(g => g.remove());
 
-const chips = $('#chips'), ngList = $('#ngList'), careList = $('#careList'), pairs = $('#pairs'), cover = card.querySelector('.cover-bg');
+let chips, ngList, careList, pairs, cover;
+function refs(){ chips = $('#chips'); ngList = $('#ngList'); careList = $('#careList'); pairs = $('#pairs'); cover = card.querySelector('.cover-bg'); }
+refs();
 
 /* =========================================================
    자동 저장
    ========================================================= */
-let timer, theme = null, over = {};
-function save(){
-  clearTimeout(timer);
-  timer = setTimeout(() => {
-    try {
-      const k = sel; if (k) k.classList.remove('sel');
-      const html = card.innerHTML;
-      if (k) k.classList.add('sel');
-      localStorage.setItem(CFG.key, JSON.stringify({ html, theme, over }));
-    } catch(e){ console.warn('자동 저장 실패 (사진 용량이 클 수 있어요)', e); }
-  }, 400);
+let timer = null, theme = null, over = {};
+let hist = [], idx = -1, skipHist = false;
+const MAX_HIST = 60;
+function commit(){
+  clearTimeout(timer); timer = null;
+  const k = sel; if (k) k.classList.remove('sel');
+  const html = card.innerHTML;
+  if (k) k.classList.add('sel');
+  const snap = JSON.stringify({ html, theme, over });
+  try { localStorage.setItem(CFG.key, snap); } catch(e){ console.warn('자동 저장 실패 (사진 용량이 클 수 있어요)', e); }
+  if (skipHist){ skipHist = false; }
+  else if (snap !== hist[idx]){
+    hist = hist.slice(0, idx + 1); hist.push(snap);
+    if (hist.length > MAX_HIST) hist.shift();
+    idx = hist.length - 1;
+  }
+  syncUndo();
 }
+function save(){ clearTimeout(timer); timer = setTimeout(commit, 400); }
 card.addEventListener('input', save);
 
 /* =========================================================
@@ -826,6 +841,8 @@ function loadFile(f, el){
       c.width = im.width * k; c.height = im.height * k;
       c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
       el.style.setProperty('--img', `url(${c.toDataURL('image/jpeg', .9)})`);
+      el.style.setProperty('--ar', (im.width / im.height).toFixed(4));
+      ['--z','--fx','--fy'].forEach(k => el.style.removeProperty(k));
       el.classList.remove('empty');
       if (el === cover){ syncCover(); openGroup('header'); } else select(el);
       save();
@@ -842,17 +859,16 @@ function controls(p, getEl){
   const show = () => {
     const el = getEl(); if (!el) return;
     $(`#${p}Z`).value = Math.round(num(el,'--z',1) * 100); $(`#${p}Zv`).textContent = $(`#${p}Z`).value + '%';
-    $(`#${p}X`).value = Math.round(num(el,'--tx',0)); $(`#${p}Xv`).textContent = $(`#${p}X`).value;
-    $(`#${p}Y`).value = Math.round(num(el,'--ty',0)); $(`#${p}Yv`).textContent = $(`#${p}Y`).value;
-    $$(`#${p}Fit button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.fit || 'cover')));
+    $(`#${p}X`).value = Math.round(num(el,'--fx',0) * 100); $(`#${p}Xv`).textContent = $(`#${p}X`).value;
+    $(`#${p}Y`).value = Math.round(num(el,'--fy',0) * 100); $(`#${p}Yv`).textContent = $(`#${p}Y`).value;
     $$(`#${p}Flt button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.flt || 'none')));
     if ($(`#${p}Tint`)) $$(`#${p}Tint button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.tint || 'none')));
   };
   const set = () => {
     const el = getEl(); if (!el) return;
     el.style.setProperty('--z', $(`#${p}Z`).value / 100);
-    el.style.setProperty('--tx', $(`#${p}X`).value + '%');
-    el.style.setProperty('--ty', $(`#${p}Y`).value + '%');
+    el.style.setProperty('--fx', $(`#${p}X`).value / 100);
+    el.style.setProperty('--fy', $(`#${p}Y`).value / 100);
     show(); save();
   };
   [`#${p}Z`,`#${p}X`,`#${p}Y`].forEach(id => $(id).oninput = set);
@@ -861,11 +877,11 @@ function controls(p, getEl){
     b.dataset.v === def ? delete el.dataset[k] : el.dataset[k] = b.dataset.v;
     show(); save();
   };
-  data(`#${p}Fit`, 'fit', 'cover'); data(`#${p}Flt`, 'flt', 'none');
+  data(`#${p}Flt`, 'flt', 'none');
   if ($(`#${p}Tint`)) data(`#${p}Tint`, 'tint', 'none');
   return show;
 }
-const clearImg = el => { ['--img','--z','--tx','--ty'].forEach(k => el.style.removeProperty(k)); ['fit','flt','tint'].forEach(k => delete el.dataset[k]); el.classList.add('empty'); };
+const clearImg = el => { ['--img','--ar','--z','--fx','--fy'].forEach(k => el.style.removeProperty(k)); ['fit','flt','tint'].forEach(k => delete el.dataset[k]); el.classList.add('empty'); };
 
 /* 헤더 사진 */
 const showCov = controls('cov', () => cover);
@@ -900,7 +916,7 @@ function select(el){
   el.classList.add('sel'); showAdj(); openGroup('photo');
 }
 $('#adjSwap').onclick = () => { if (sel) pick(sel); };
-$('#adjReset').onclick = () => { if (!sel) return; ['--z','--tx','--ty'].forEach(k => sel.style.removeProperty(k)); ['fit','flt'].forEach(k => delete sel.dataset[k]); showAdj(); save(); };
+$('#adjReset').onclick = () => { if (!sel) return; ['--z','--fx','--fy'].forEach(k => sel.style.removeProperty(k)); ['fit','flt'].forEach(k => delete sel.dataset[k]); showAdj(); save(); };
 $('#adjDel').onclick = () => { if (!sel) return; clearImg(sel); select(null); save(); };
 $('#adjDone').onclick = () => select(null);
 
@@ -916,25 +932,32 @@ card.addEventListener('click', e => {
 
 /* 사진을 끌어서 옮기기 (맞춤과 상관없이 자유롭게) + 가운데에 오면 중앙선 + 휠로 확대 */
 const movable = el => el && !el.classList.contains('empty') && (el === cover || el === sel);
-const SNAP = 1.5;   // 가운데에서 이만큼(%) 안쪽이면 딱 붙어요
+/* 사진이 칸보다 얼마나 더 큰지(움직일 수 있는 거리, 화면 px) */
+function travel(el){
+  const r = el.getBoundingClientRect(), ar = num(el,'--ar',1), z = num(el,'--z',1);
+  const iw = Math.max(r.width, r.height * ar), ih = Math.max(r.height, r.width / ar);
+  return { x: (iw * z - r.width) / 2, y: (ih * z - r.height) / 2 };
+}
+const clamp1 = v => Math.max(-1, Math.min(1, v));
+const SNAP_PX = 6;   // 가운데에서 이만큼(px) 안쪽이면 딱 붙어요
 card.addEventListener('pointerdown', e => {
   const el = e.target.closest('[data-up]');
   if (!movable(el) || e.target.closest('[contenteditable]')) return;
   e.preventDefault();
-  const r = el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
-  const tx0 = num(el,'--tx',0), ty0 = num(el,'--ty',0);
+  const sx = e.clientX, sy = e.clientY, t = travel(el);
+  const fx0 = num(el,'--fx',0), fy0 = num(el,'--fy',0);
   const guide = document.createElement('div'); guide.className = 'guide no-png';
   guide.innerHTML = '<i class="v"></i><i class="h"></i>'; el.appendChild(guide);
   dragMoved = false;
   const move = ev => {
     const dx = ev.clientX - sx, dy = ev.clientY - sy;
     if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
-    let tx = tx0 + dx / r.width * 100, ty = ty0 + dy / r.height * 100;
-    const sv = Math.abs(tx) < SNAP, sh = Math.abs(ty) < SNAP;
-    if (sv) tx = 0; if (sh) ty = 0;
+    let fx = t.x > .5 ? clamp1(fx0 + dx / t.x) : 0, fy = t.y > .5 ? clamp1(fy0 + dy / t.y) : 0;
+    const sv = Math.abs(fx * t.x) < SNAP_PX, sh = Math.abs(fy * t.y) < SNAP_PX;
+    if (sv) fx = 0; if (sh) fy = 0;
     guide.classList.toggle('sv', sv); guide.classList.toggle('sh', sh);
-    el.style.setProperty('--tx', tx.toFixed(1) + '%');
-    el.style.setProperty('--ty', ty.toFixed(1) + '%');
+    el.style.setProperty('--fx', fx.toFixed(3));
+    el.style.setProperty('--fy', fy.toFixed(3));
     el === cover ? showCov() : showAdj();
   };
   const up = () => {
@@ -947,10 +970,24 @@ card.addEventListener('wheel', e => {
   const el = e.target.closest('[data-up]');
   if (!movable(el)) return;
   e.preventDefault();
-  const z = Math.max(.5, Math.min(3, num(el,'--z',1) - Math.sign(e.deltaY) * .05));
+  const z = Math.max(1, Math.min(4, num(el,'--z',1) - Math.sign(e.deltaY) * .05));
   el.style.setProperty('--z', z.toFixed(2));
   el === cover ? showCov() : showAdj(); save();
 }, { passive:false });
+
+/* 예전에 올린 사진: 비율(--ar)을 알아내고, 예전 위치·맞춤 값은 정리해요 */
+function fixOldImages(){
+  card.querySelectorAll('.img').forEach(el => {
+    ['--x','--y','--px','--py','--tx','--ty'].forEach(k => el.style.removeProperty(k));
+    delete el.dataset.fit;
+    if (num(el,'--z',1) < 1) el.style.setProperty('--z', 1);
+    if (el.classList.contains('empty') || el.style.getPropertyValue('--ar')) return;
+    const m = (el.style.getPropertyValue('--img').match(/url\(["']?(.*?)["']?\)$/) || [])[1]; if (!m) return;
+    const im = new Image();
+    im.onload = () => { el.style.setProperty('--ar', (im.width / im.height).toFixed(4)); save(); };
+    im.src = m;
+  });
+}
 
 /* 파일을 사진 칸에 끌어다 놓기 */
 card.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files') && e.target.closest('[data-up]')) e.preventDefault(); });
@@ -1144,8 +1181,8 @@ function setMode(m){
 $('#pairMode').onclick = e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.v); };
 $('#pairPlus').onclick = () => { pairs.insertAdjacentHTML('beforeend', pairHTML()); syncPairs(); save(); };
 $('#pairMinus').onclick = () => { if (pairs.children.length > 1){ if (sel && pairs.lastElementChild.contains(sel)) select(null); pairs.lastElementChild.remove(); syncPairs(); save(); } };
-pairs.addEventListener('click', e => {
-  if (e.target.classList.contains('del') && pairs.children.length > 1){
+card.addEventListener('click', e => {
+  if (e.target.classList.contains('del') && e.target.closest('#pairs') && pairs.children.length > 1){
     const p = e.target.closest('.pair'); if (sel && p.contains(sel)) select(null);
     p.remove(); syncPairs(); save();
   }
@@ -1167,8 +1204,8 @@ function addChip(k, v = 0){
   s.className = 'chip v' + v; s.dataset.k = k; s.textContent = k;
   chips.appendChild(s); sortChips();
 }
-chips.addEventListener('click', e => {
-  const c = e.target.closest('.chip'); if (!c) return;
+card.addEventListener('click', e => {
+  const c = e.target.closest('#chips .chip'); if (!c) return;
   c.className = 'chip v' + ((+(c.className.match(/v(\d)/) || [0,0])[1] + 1) % 4); save();
 });
 function syncTypeHint(){
@@ -1190,26 +1227,26 @@ $('#typeT').onclick = e => {
 /* =========================================================
    NG · 배려 목록 (직접 입력)
    ========================================================= */
-function listUI(ul, id, label){
+function listUI(getUl, id, label){
   const sync = () => {
-    const h = $('#' + id + 'Hint');
+    const ul = getUl(), h = $('#' + id + 'Hint');
     if (!ul.children.length){ if (!h) ul.insertAdjacentHTML('afterend', `<p class="empty-hint no-png" id="${id}Hint">왼쪽 패널에서 ${label} 항목을 추가해 주세요.</p>`); }
     else if (h) h.remove();
   };
   const build = () => {
-    const items = [...ul.children];
+    const items = [...getUl().children];
     $('#' + id + 'T').innerHTML = items.length ? items.map((li, i) => `<button data-i="${i}">${li.textContent}</button>`).join('') : '<span class="none">아직 없어요</span>';
     sync();
   };
-  $('#' + id + 'T').onclick = e => { const b = e.target.closest('button'); if (!b) return; ul.children[+b.dataset.i]?.remove(); build(); save(); };
+  $('#' + id + 'T').onclick = e => { const b = e.target.closest('button'); if (!b) return; getUl().children[+b.dataset.i]?.remove(); build(); save(); };
   const setCol = (n, silent) => {
-    ul.classList.toggle('cols2', n === 2);
+    getUl().classList.toggle('cols2', n === 2);
     $$('#' + id + 'Col button').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
     if (!silent) save();
   };
   $('#' + id + 'Col').onclick = e => { const b = e.target.closest('button'); if (b) setCol(+b.dataset.v); };
-  bindAdd('#' + id + 'In', '#' + id + 'Add', v => { const li = document.createElement('li'); li.textContent = v; ul.appendChild(li); build(); });
-  return () => { build(); setCol(ul.classList.contains('cols2') ? 2 : 1, true); };
+  bindAdd('#' + id + 'In', '#' + id + 'Add', v => { const li = document.createElement('li'); li.textContent = v; getUl().appendChild(li); build(); });
+  return () => { build(); setCol(getUl().classList.contains('cols2') ? 2 : 1, true); };
 }
 
 /* 입력칸 */
@@ -1218,7 +1255,7 @@ function bindAdd(inp, btn, fn){
   $(btn).onclick = go; $(inp).onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go(); };
 }
 bindAdd('#typeIn', '#typeAdd', v => { addChip(v); buildTypes(); });
-const initNg = listUI(ngList, 'ng', 'NG');
+const initNg = listUI(() => ngList, 'ng', 'NG');
 
 /* =========================================================
    INFO · NOW 줄
@@ -1361,6 +1398,40 @@ function fit(){
 window.addEventListener('resize', fit);
 
 /* =========================================================
+   되돌리기 · 다시 하기 (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
+   ========================================================= */
+function syncUndo(){
+  $('#undo').disabled = idx <= 0;
+  $('#redo').disabled = idx >= hist.length - 1;
+}
+function renderAll(){
+  buildPills(); buildTypes(); initNg(); initCareCol(); syncPairs(); syncLists(); buildDecos(); syncCover();
+  setMode(pairs.dataset.mode || 'duo');
+  setShape(($('#pfArea').className.match(/shape-(\w+)/) || [0,'circle'])[1]);
+  setCov(parseInt(card.querySelector('.hero').style.getPropertyValue('--cov')) || 290, true);
+}
+function restore(snap){
+  const d = JSON.parse(snap);
+  select(null); fmt.hidden = true;
+  card.innerHTML = d.html; refs(); fixOldImages();
+  skipHist = true;
+  renderAll();
+  applyTheme(d.theme, d.over);
+  fitBig(); fit();
+  commit();   // 되돌린 상태를 바로 저장 (기록은 그대로)
+}
+function undo(){ if (timer) commit(); if (idx <= 0) return; idx--; restore(hist[idx]); }
+function redo(){ if (timer) commit(); if (idx >= hist.length - 1) return; idx++; restore(hist[idx]); }
+$('#undo').onclick = undo; $('#redo').onclick = redo;
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase(); if (k !== 'z' && k !== 'y') return;
+  if (e.target.closest?.('input, textarea')) return;   // 패널 입력칸은 원래대로
+  e.preventDefault();
+  (k === 'y' || e.shiftKey) ? redo() : undo();
+});
+
+/* =========================================================
    시작
    ========================================================= */
 if (!pairs.children.length){
@@ -1403,10 +1474,7 @@ card.addEventListener('input', e => { if (e.target.closest?.('.cover .big')) fit
 /* made by 문구는 고정 */
 const credit = card.querySelector('.foot .r');
 if (credit){ credit.removeAttribute('contenteditable'); credit.textContent = CFG.credit || 'made by @Cookie_B_A'; }
-buildPills(); sortChips(); buildTypes(); initNg(); initCareCol(); syncPairs(); syncLists(); buildDecos(); syncCover();
-setMode(pairs.dataset.mode || 'duo');
-setShape(($('#pfArea').className.match(/shape-(\w+)/) || [0,'circle'])[1]);
-setCov(parseInt(card.querySelector('.hero').style.getPropertyValue('--cov')) || 290, true);
+fixOldImages(); sortChips(); renderAll();
 applyTheme(saved.theme || CFG.themes[0].id, saved.over || (saved.custom ? { '--accent': saved.custom } : {}));
 fit();
 })();
