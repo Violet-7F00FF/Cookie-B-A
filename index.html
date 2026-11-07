@@ -341,8 +341,8 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
 /* =========== 가운데 3칸 =========== */
 .mid{display:grid;grid-template-columns:1.35fr 1fr 1fr;grid-template-areas:"info type ng" "readme readme care";gap:18px}
 .infob{grid-area:info}.typeb{grid-area:type}.ng{grid-area:ng}.readme{grid-area:readme}.care{grid-area:care}
-.mid>.blk{min-height:200px}
-.mid>.readme,.mid>.care{min-height:0}
+.mid>.blk{min-height:0;padding-bottom:16px}
+.mid li:last-child{padding-bottom:0}
 .blk{padding:18px 20px;min-height:0}
 .hd{display:flex;align-items:center;gap:8px;margin-bottom:14px}
 .hd .ic{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font:600 12px var(--en);color:var(--accent);background:var(--soft)}
