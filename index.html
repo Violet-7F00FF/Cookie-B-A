@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile Sheet</title>
+<meta name="description" content="AI 채팅 성향표 메이커">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   편집 패널 + 공용 동작 스타일 (두 디자인이 같이 써요)
+   PNG에는 패널이 찍히지 않아요
+   ========================================================= */
+.wrap{display:grid;grid-template-columns:330px 1fr;min-height:100vh}
+.viewer{padding:28px;display:flex;justify-content:center;align-items:flex-start;overflow:hidden}
+.stage{width:max-content;transform-origin:top left;flex:none}
+
+.panel{--p-accent:var(--panel-accent,var(--accent,#5b5ef0));--p-soft:color-mix(in srgb,var(--p-accent) 10%,#fff);
+  background:#fff;border-right:1.5px solid #e4e5f2;padding:22px 20px 40px;color:#4e5170;
+  font-family:"Pretendard",sans-serif;height:100vh;overflow-y:auto;position:sticky;top:0}
+.panel h1{font:800 17px "Pretendard",sans-serif;color:#181a33;letter-spacing:-.02em}
+.panel h1 span{color:var(--p-accent)}
+.panel .lead{font-size:12.5px;color:#9a9cb8;margin:6px 0 4px;line-height:1.55}
+.panel .lead b{color:#4e5170}
+.grp{padding:16px 0;border-bottom:1.5px solid #eceef6}
+.grp:last-child{border:0}
+.grp h4{font:700 12px "Pretendard",sans-serif;color:#181a33;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.grp h4 .n{margin-left:auto;color:var(--p-accent);font-weight:700}
+.shapes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.shapes button{aspect-ratio:1;border:1.5px solid #e4e5f2;border-radius:10px;background:#fff;display:grid;place-items:center;cursor:pointer}
+.shapes button i{width:26px;height:26px;background:color-mix(in srgb,var(--p-accent) 25%,#fff);clip-path:var(--clip)}
+.shapes button.on{border-color:var(--p-accent);background:var(--p-soft)}
+.shapes button.on i{background:var(--p-accent)}
+.row{display:flex;gap:6px}
+.btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid #e4e5f2;background:#fff;font:700 13px "Pretendard",sans-serif;color:#181a33;cursor:pointer}
+.btn:hover{border-color:var(--p-accent);color:var(--p-accent)}
+.btn.on,.btn.pri{background:var(--p-accent);border-color:var(--p-accent);color:#fff}
+.btn.pri:hover{filter:brightness(1.08);color:#fff}
+.btn:disabled{opacity:.35;cursor:default}
+.toggles{display:flex;flex-wrap:wrap;gap:5px}
+.toggles button{padding:6px 10px;border-radius:20px;border:1.5px solid #e4e5f2;background:#fff;font:600 12.5px "Pretendard",sans-serif;color:#4e5170;cursor:pointer}
+.toggles button.on{background:var(--p-accent);border-color:var(--p-accent);color:#fff}
+.toggles.rm button::after{content:"  ✕";opacity:.6}
+.toggles.rm button:hover{border-color:#ff7a90;color:#e2455f}
+.toggles .none{font-size:12px;color:#b0b2c8}
+.add{display:flex;gap:6px;margin-top:8px}
+.add input{flex:1;min-width:0;padding:8px 10px;border:1.5px solid #e4e5f2;border-radius:10px;font:500 13px "Pretendard",sans-serif;color:#181a33;outline:none}
+.add input:focus{border-color:var(--p-accent)}
+.add button{padding:0 12px;border-radius:10px;border:0;background:#181a33;color:#fff;font:700 13px "Pretendard",sans-serif;cursor:pointer}
+.hint{font-size:11.5px;color:#9a9cb8;margin-top:8px;line-height:1.5}
+.colors{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.colors button{width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px #e4e5f2;cursor:pointer}
+.colors button.on{box-shadow:0 0 0 2px #181a33}
+.colors input{width:32px;height:32px;border:0;background:none;padding:0;cursor:pointer}
+.switch{display:block;margin-top:4px;font-size:12.5px;color:var(--p-accent);font-weight:700;text-decoration:none}
+
+/* 카드 안에서 공용으로 쓰는 동작 */
+[data-up]{cursor:pointer}
+[data-up]:hover{filter:brightness(.95)}
+[contenteditable]{outline:none;border-radius:4px;transition:box-shadow .15s}
+[contenteditable]:hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}
+[contenteditable]:focus{box-shadow:0 0 0 2px var(--accent)}
+.del{position:absolute;right:8px;top:8px;z-index:5;width:26px;height:26px;border-radius:50%;
+  border:0;background:rgba(24,26,51,.75);color:#fff;font-size:12px;opacity:0;transition:.15s;cursor:pointer}
+.pair:hover .del{opacity:1}
+.empty-hint{font-size:13px;color:var(--dim,#9a9cb8);padding:4px 0}
+
+/* 페어 방식: 한 장 / 나눠서 */
+.pairs[data-mode="one"] .pics{grid-template-columns:1fr !important}
+.pairs[data-mode="one"] .pics .b,.pairs[data-mode="one"] .pics .x{display:none}
+.pairs[data-mode="one"] .pics .a.empty::after{content:"PAIR IMAGE"}
+
+/* 프로필 모양 */
+.shape-circle {--clip:circle(50% at 50% 50%)}
+.shape-square {--clip:inset(0)}
+.shape-round  {--clip:inset(0 round 34px)}
+.shape-arch   {--clip:inset(0 round 50% 50% 14px 14px)}
+.shape-hexa   {--clip:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%)}
+.shape-octa   {--clip:polygon(29% 0,71% 0,100% 29%,100% 71%,71% 100%,29% 100%,0 71%,0 29%)}
+.shape-diamond{--clip:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.shape-flower {--clip:polygon(50% 0%,61% 14%,79% 9%,82% 27%,99% 34%,90% 50%,99% 66%,82% 73%,79% 91%,61% 86%,50% 100%,39% 86%,21% 91%,18% 73%,1% 66%,10% 50%,1% 34%,18% 27%,21% 9%,39% 14%)}
+
+/* 작은 화면 */
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr}
+  .panel{position:static;height:auto;border-right:0;border-bottom:1.5px solid #e4e5f2}
+  .viewer{padding:16px}
+}
+
+/* 템플릿 색 */
+.themes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.themes button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 0 6px;border-radius:10px;border:1.5px solid #e4e5f2;background:#fff;cursor:pointer;font:600 11px "Pretendard",sans-serif;color:#4e5170}
+.themes button i{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.themes button.on{border-color:var(--p-accent);background:var(--p-soft);color:var(--p-accent)}
+.custom{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:12px;color:#9a9cb8}
+.custom input{width:34px;height:28px;border:0;background:none;padding:0;cursor:pointer}
+/* 사진 조절 슬라이더 */
+.sl{display:grid;grid-template-columns:60px 1fr 46px;align-items:center;gap:8px;font:600 12px "Pretendard",sans-serif;color:#4e5170;margin-top:6px}
+.sl input{accent-color:var(--p-accent);width:100%}
+.sl b{font:600 11px "Pretendard",sans-serif;color:var(--p-accent);text-align:right}
+/* 사진 표시 (크기/위치 조절용) */
+.adj .img{overflow:hidden}
+.adj .img::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:var(--img) var(--px,50%) var(--py,50%)/cover no-repeat;transform:scale(var(--z,1))}
+.adj .img[data-fit="contain"]::before{background-size:contain}
+.adj .img[data-flt="bright"]::before{filter:brightness(1.12) saturate(1.06)}
+.adj .img[data-flt="dark"]::before{filter:brightness(.78)}
+.adj .img[data-flt="vivid"]::before{filter:contrast(1.15) saturate(1.35)}
+.adj .img[data-flt="soft"]::before{filter:brightness(1.08) contrast(.88) saturate(1.15) blur(.6px)}
+.adj .img[data-flt="mono"]::before{filter:grayscale(1)}
+.adj .img[data-flt="sepia"]::before{filter:sepia(.7) saturate(1.1)}
+.adj .img[data-flt="vintage"]::before{filter:sepia(.35) contrast(.9) brightness(1.05) saturate(.8)}
+.adj .img[data-flt="cool"]::before{filter:hue-rotate(-12deg) saturate(1.1) brightness(1.03)}
+.adj .img[data-flt="warm"]::before{filter:sepia(.25) saturate(1.25) hue-rotate(-8deg)}
+.adj .img[data-flt="blur"]::before{filter:blur(4px);inset:-8px}
+.img.sel{outline:3px dashed var(--accent);outline-offset:-6px}
+[hidden]{display:none !important}
+
+.panel .sub{font:600 11.5px "Pretendard",sans-serif;color:#9a9cb8;margin:12px 0 6px}
+.fltgrid{display:flex;flex-wrap:wrap;gap:5px}
+.fltgrid .btn{flex:1 0 auto;padding:7px 10px;font-size:12px}
+.seg .btn{padding:8px 6px;font-size:12.5px}
+
+/* 패널 접기 · 고정 저장 버튼 */
+.panel{display:flex;flex-direction:column;padding-bottom:0}
+.panel .ph{padding-bottom:6px}
+.grp h4{cursor:pointer;user-select:none;margin-bottom:0}
+.grp h4::before{content:"";width:6px;height:6px;border-right:1.6px solid #b4b6cc;border-bottom:1.6px solid #b4b6cc;transform:rotate(45deg);margin:-3px 2px 0 1px;transition:.15s;flex:none}
+.grp h4 .n{margin-left:auto}
+.grp.closed h4::before{transform:rotate(-45deg);margin-top:0}
+.grp .gb{padding-top:12px}
+.grp.closed .gb{display:none}
+.grp.flash{animation:flash 1s ease}
+@keyframes flash{0%{background:var(--p-soft)}100%{background:transparent}}
+.dock{position:sticky;bottom:0;margin:auto -20px 0;padding:12px 20px 16px;background:linear-gradient(transparent,#fff 30%);display:flex;gap:6px}
+.dock .btn.pri{flex:2.2}
+.btn:disabled{opacity:.35;cursor:default}
+
+/* 글씨 꾸미기 도구 (화이트) */
+.fmt{position:fixed;z-index:50;padding:5px;border-radius:14px;background:#fff;border:1px solid #e6e7f2;
+  box-shadow:0 12px 32px -10px rgba(30,30,80,.28),0 2px 6px rgba(30,30,80,.06);font-family:"Pretendard",sans-serif;color:#2b2d45}
+.fmt .fr{display:flex;align-items:center;gap:2px}
+.fmt button{min-width:30px;height:30px;border:0;border-radius:8px;background:none;color:#2b2d45;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 6px}
+.fmt .fr button:hover{background:#f2f2f8}
+.fmt .fr button.on{background:#ebebfa;color:var(--p-accent2,#5b5ef0)}
+.fmt button sup{font-size:10px;margin-left:1px;vertical-align:super;line-height:0}
+.fmt .sep{width:1px;height:18px;background:#e6e7f2;margin:0 3px}
+.fmt .sw.h{border-radius:3px;padding:0 3px;font-size:12px;background:linear-gradient(transparent 50%,color-mix(in srgb,var(--accent,#5b5ef0) 35%,transparent) 50%)}
+.fmt .cbtn{display:flex;flex-direction:column;gap:1px;padding-top:3px}
+.fmt .cbtn .ca{font-weight:700;font-size:14px;line-height:1}
+.fmt .cbar{width:16px;height:3.5px;border-radius:2px;background:#1c1e3b;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.fmt .fp{border-top:1px solid #eeeef6;margin-top:5px;padding:8px 6px 4px}
+.fmt .fp p{font-size:11px;font-weight:600;color:#9a9cb8;margin:2px 0 6px}
+.fmt .sws{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.fmt .sws button{min-width:0;width:22px;height:22px;padding:0;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.fmt .sws button:hover{transform:scale(1.12)}
+.fmt .fpb{display:flex;gap:6px;align-items:center}
+.fmt .pick{flex:1;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;font-weight:600;color:#4e5170;
+  border:1px solid #e6e7f2;border-radius:8px;padding:3px 4px 3px 9px;cursor:pointer;white-space:nowrap}
+.fmt .pick input{width:24px;height:22px;border:0;padding:0;background:none;cursor:pointer}
+.fmt .nocol{height:30px;font-size:12px;font-weight:600;border:1px solid #e6e7f2 !important;color:#4e5170;white-space:nowrap}
+.fmt .nocol:hover{background:#f6f6fb}
+
+/* 비어 있는 글씨 칸 표시 (PNG에는 안 나와요) */
+.card:not(.capturing) [contenteditable]:empty::after{content:"✎ 입력";opacity:.35;font-weight:500;font-size:.85em}
+
+/* 패널 글씨 줄바꿈 방지 */
+.panel h4,.panel .btn,.panel .sl span,.panel .sl b,.panel .themes span,.panel .custom span,.panel .sub,
+.panel .toggles button,.panel .dock .btn,.fmt button{white-space:nowrap}
+
+/* 색 직접 정하기 */
+.cpick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cpick label{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px 7px;border-radius:10px;border:1.5px solid #e4e5f2;cursor:pointer;
+  font:600 11.5px "Pretendard",sans-serif;color:#4e5170;white-space:nowrap}
+.cpick label.on{border-color:var(--p-accent);background:var(--p-soft);color:var(--p-accent)}
+.cpick input{width:30px;height:30px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%}
+.cpick input::-webkit-color-swatch-wrapper{padding:0}
+.cpick input::-webkit-color-swatch{border:1px solid rgba(0,0,0,.1);border-radius:50%}
+.cpick input::-moz-color-swatch{border:1px solid rgba(0,0,0,.1);border-radius:50%}
+
+/* 상단 배지 편집 */
+.pills-ed{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+.pillrow{display:flex;align-items:center;gap:5px}
+.pillrow span{flex:1;min-width:0;padding:7px 11px;border-radius:20px;background:#f4f4fa;font:600 12.5px "Pretendard",sans-serif;color:#2b2d45;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pillrow .btn{flex:none;padding:6px 10px;font-size:12px}
+.pills-ed .none{font-size:12px;color:#b0b2c8}
+
+.pillrow .grip{flex:none;width:22px;height:30px;display:grid;place-items:center;font-size:15px;color:#a3a6c4;cursor:grab;touch-action:none;user-select:none;border-radius:6px}
+.pillrow .grip:hover{background:#f2f2f8;color:#4e5170}
+.pillrow.dragging{opacity:.9;transform:scale(1.02);box-shadow:0 8px 20px -8px rgba(30,30,80,.35);border-radius:20px;background:#fff;position:relative;z-index:2}
+.pillrow.dragging .grip{cursor:grabbing}
+
+</style>
+<style>
+/* =========================================================
+   🎨 기본 색 (청보라) — 템플릿은 아래 <script>의 themes에서 바꿔요
+   ========================================================= */
+:root{
+  --img: none;
+  --accent: #5b5ef0;  --pink: #f3a5c8;  --on: #fff;
+  --bg: #f8f8fd;  --box: #fff;  --chip: #f3f3f9;
+  --ink: #1c1e3b;  --text: #565a7e;  --dim: #a3a6c4;  --line: #ebecf6;
+  --soft:  color-mix(in srgb, var(--accent) 9%, var(--box));
+  --soft2: color-mix(in srgb, var(--accent) 20%, var(--box));
+  --mid:   color-mix(in srgb, var(--accent) 45%, var(--box));
+  --c1: var(--accent);  --c2: var(--mid);  --c3: var(--pink);  --cover-ink: #fff;
+  --en: "Outfit","Pretendard","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+  --ko: "Pretendard","Apple SD Gothic Neo","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#eef0fa}
+body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ---------- 카드 ---------- */
+.card{
+  width:1200px;position:relative;overflow:hidden;overflow:clip;
+  padding:30px 36px 24px;display:grid;gap:22px;color:var(--text);
+  background:
+    radial-gradient(ellipse 700px 480px at 100% 100%, color-mix(in srgb,var(--pink) 18%,transparent), transparent 70%),
+    radial-gradient(ellipse 600px 400px at 0% 40%, color-mix(in srgb,var(--accent) 8%,transparent), transparent 70%),
+    var(--bg);
+  box-shadow:0 40px 80px -40px rgba(40,40,110,.35);
+}
+.card>section,.card>footer{position:relative;z-index:1}
+.dots{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(color-mix(in srgb,var(--accent) 20%,transparent) 1px,transparent 1.4px) 0 0/22px 22px}
+.box{position:relative;background:var(--box);border:1px solid var(--line);border-radius:24px;
+  box-shadow:0 1px 2px rgba(30,30,80,.03),0 16px 32px -22px rgba(40,40,110,.3)}
+
+/* 이미지 자리 */
+.img{background:linear-gradient(150deg,var(--soft2),var(--soft) 60%,color-mix(in srgb,var(--pink) 15%,var(--box)));position:relative}
+.img.empty::after{content:attr(data-label);position:absolute;inset:0;display:grid;place-items:center;
+  font:500 11px var(--en);letter-spacing:.2em;color:var(--mid)}
+.twk{position:absolute;background:var(--cover-ink);clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)}
+
+/* =========== 히어로 =========== */
+.hero{--cov:290px;position:relative;height:calc(var(--cov) + 162px)}
+.cover{position:absolute;left:0;right:0;top:0;height:var(--cov);border-radius:30px;overflow:hidden;overflow:clip;background:var(--box);color:var(--cover-ink)}
+.cover>*{z-index:2}
+.cover-bg{position:absolute !important;inset:0;z-index:0 !important}
+.cover-bg.empty::after{display:none}
+.cover-tint{position:absolute;inset:0;z-index:1 !important;pointer-events:none;
+  background:
+    radial-gradient(circle at 78% 120%,rgba(255,255,255,.26) 0 120px,transparent 121px),
+    radial-gradient(circle at 92% -10%,rgba(255,255,255,.2) 0 90px,transparent 91px),
+    radial-gradient(circle at 56% 30%,rgba(255,255,255,.12) 0 40px,transparent 41px),
+    linear-gradient(115deg,var(--c1) 0%,var(--c2) 52%,var(--c3) 100%)}
+.cover-bg:not(.empty) ~ .cover-tint{opacity:0}
+.cover-bg:not(.empty)[data-tint="light"] ~ .cover-tint{opacity:.3}
+.cover-bg:not(.empty)[data-tint="strong"] ~ .cover-tint{opacity:.6}
+.cover-bg:not(.empty)[data-tint="shade"] ~ .cover-tint{opacity:1;background:linear-gradient(180deg,rgba(10,10,30,.15),rgba(10,10,30,.5))}
+.cover-hint{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 12px var(--ko);pointer-events:none;
+  padding:6px 12px;border-radius:20px;background:rgba(28,30,59,.22);border:1px dashed rgba(255,255,255,.75);color:#fff}
+.cover-bg.empty ~ .cover-hint{display:block}
+
+.cover .bar{position:absolute;left:30px;right:30px;top:24px;display:flex;align-items:center;gap:12px;pointer-events:none}
+.cover .bar>*{pointer-events:auto}
+.mark{display:flex;align-items:center;gap:9px;font:600 18px var(--en)}
+.mark i{width:9px;height:9px;border-radius:50%;background:var(--cover-ink);box-shadow:0 0 0 4px color-mix(in srgb,var(--cover-ink) 30%,transparent)}
+.cover .sub{font:400 14px var(--en);opacity:.85}
+.cover .r{margin-left:auto;display:flex;gap:8px}
+.pill{font:500 12px var(--en);letter-spacing:.06em;padding:6px 13px;border-radius:30px;
+  background:color-mix(in srgb,var(--cover-ink) 16%,transparent);border:1px solid color-mix(in srgb,var(--cover-ink) 40%,transparent)}
+.pill.on{background:var(--box);color:var(--ink);border-color:var(--box)}
+.pill.on::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#59d38e;margin-right:7px;vertical-align:1px}
+.cover .big{position:absolute;right:30px;bottom:-.22em;font:700 118px/1 var(--en);letter-spacing:-.04em;pointer-events:none;
+  color:transparent;-webkit-text-stroke:1.5px color-mix(in srgb,var(--cover-ink) 45%,transparent);white-space:nowrap}
+.cover .big>*{pointer-events:auto}
+.cover .msg{position:absolute;left:250px;bottom:20px;width:470px;text-shadow:0 1px 10px rgba(30,30,90,.25)}
+.cover .hey{font:500 14px var(--en);letter-spacing:.02em;opacity:.9}
+.cover .mt{font:600 15px/1.5 var(--ko);letter-spacing:-.02em;margin-top:4px}
+.cover .seal{position:absolute;right:30px;top:72px;width:96px;height:96px;pointer-events:none}
+.cover .t1{width:26px;height:26px;left:190px;top:150px}
+.cover .t2{width:12px;height:12px;left:222px;top:184px;opacity:.8}
+.cover .t3{width:18px;height:18px;right:420px;top:150px;opacity:.7}
+.cover .t4{width:14px;height:14px;left:420px;top:88px;opacity:.6}
+
+/* 추가 꾸밈 (기본은 꺼져 있어요) */
+.starfield{position:absolute;inset:0;pointer-events:none;opacity:.7;
+  background:
+    radial-gradient(1.6px 1.6px at 12% 20%,var(--cover-ink),transparent),radial-gradient(1.2px 1.2px at 22% 70%,var(--cover-ink),transparent),
+    radial-gradient(2px 2px at 35% 15%,var(--cover-ink),transparent),radial-gradient(1.2px 1.2px at 48% 55%,var(--cover-ink),transparent),
+    radial-gradient(1.6px 1.6px at 63% 22%,var(--cover-ink),transparent),radial-gradient(1.2px 1.2px at 70% 75%,var(--cover-ink),transparent),
+    radial-gradient(1.8px 1.8px at 84% 40%,var(--cover-ink),transparent),radial-gradient(1.2px 1.2px at 92% 12%,var(--cover-ink),transparent),
+    radial-gradient(1.4px 1.4px at 5% 50%,var(--cover-ink),transparent),radial-gradient(1.4px 1.4px at 57% 88%,var(--cover-ink),transparent),
+    radial-gradient(1.2px 1.2px at 42% 35%,var(--cover-ink),transparent),radial-gradient(1.6px 1.6px at 77% 60%,var(--cover-ink),transparent)}
+.wave{position:absolute;left:0;right:0;bottom:-1px;height:16px;pointer-events:none;
+  background:radial-gradient(circle at 14px 16px,var(--bg) 9px,transparent 9.5px) 0 0/28px 16px repeat-x}
+
+/* 프로필 */
+.pf-wrap{position:absolute;left:30px;top:calc(var(--cov) - 94px);width:190px;height:190px;z-index:3}
+.pf-wrap .ring{position:absolute;inset:-12px;border-radius:50%;border:1.5px dashed var(--mid);opacity:.8}
+.pf-area{width:100%;height:100%;filter:drop-shadow(0 16px 24px color-mix(in srgb,var(--accent) 32%,transparent))}
+.pf{width:100%;height:100%;padding:8px;clip-path:var(--clip);background:var(--box)}
+.pf .img{width:100%;height:100%;clip-path:var(--clip)}
+
+.who{position:absolute;left:250px;top:calc(var(--cov) + 12px);display:flex;flex-direction:column}
+.name{font:800 50px/1.05 var(--ko);color:var(--ink);letter-spacing:-.05em}
+.meta{display:flex;align-items:center;gap:12px;margin-top:8px}
+.handle{font:500 18px var(--en);color:var(--accent)}
+.meta .dot{width:4px;height:4px;border-radius:50%;background:var(--dim)}
+.kind{font:500 15px var(--ko);color:var(--text);letter-spacing:-.02em}
+
+.now{position:absolute;left:250px;right:0;top:calc(var(--cov) + 118px);display:flex;gap:14px;align-items:center}
+.now .lbl{flex:none;display:flex;align-items:baseline;gap:6px}
+.now .lbl b{font:600 13px var(--en);letter-spacing:.16em;color:var(--ink)}
+.now .lbl span{font:500 12px var(--ko);color:var(--dim)}
+#nowList{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+#nowList li{list-style:none;display:flex;align-items:center;gap:9px;font:600 14px var(--ko);color:var(--ink);letter-spacing:-.02em;
+  padding:7px 14px 7px 11px;border-radius:30px;background:var(--box);border:1px solid var(--line);box-shadow:0 8px 18px -14px rgba(40,40,110,.45)}
+#nowList li::before{content:"";width:8px;height:8px;border-radius:50%;flex:none;background:linear-gradient(135deg,var(--accent),var(--pink))}
+
+/* =========== 가운데 3칸 =========== */
+.mid{display:grid;grid-template-columns:1.35fr 1fr 1fr;grid-template-areas:"info type ng" "readme readme care";gap:18px}
+.infob{grid-area:info}.typeb{grid-area:type}.ng{grid-area:ng}.readme{grid-area:readme}.care{grid-area:care}
+.mid>.blk{min-height:200px}
+.blk{padding:18px 20px;min-height:0}
+.hd{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.hd .ic{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font:600 12px var(--en);color:var(--accent);background:var(--soft)}
+.hd h3{font:600 17px var(--en);color:var(--ink)}
+.hd .ko{font:500 13px var(--ko);color:var(--dim);transform:translateY(1px)}
+.hd .no{margin-left:auto;font:500 12px var(--en);color:var(--mid)}
+
+.info li{list-style:none;position:relative;padding:3px 0 3px 16px;font:500 14px/1.55 var(--ko);letter-spacing:-.025em}
+.info li::before{content:"";position:absolute;left:0;top:8px;width:10px;height:10px;background:var(--mid);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+.info b{color:var(--ink);font-weight:700}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font:600 13.5px var(--ko);letter-spacing:-.02em;padding:7px 14px;border-radius:30px;cursor:pointer;user-select:none;color:var(--text);background:var(--chip)}
+.chip.v1{background:var(--accent);color:var(--on)}
+.chip.v2{background:var(--ink);color:var(--box)}
+.chip.v3{background:var(--soft2);color:color-mix(in srgb,var(--accent) 70%,var(--ink))}
+
+.ng li{list-style:none;position:relative;padding:4px 0 4px 20px;font:500 14px/1.5 var(--ko);letter-spacing:-.025em;break-inside:avoid}
+.ng li::before{content:"";position:absolute;left:1px;top:9px;width:10px;height:10px;background:var(--pink);
+  clip-path:polygon(20% 0,50% 30%,80% 0,100% 20%,70% 50%,100% 80%,80% 100%,50% 70%,20% 100%,0 80%,30% 50%,0 20%)}
+.ng ul.cols2,.care ul.cols2{columns:2;column-gap:18px}
+.care li{list-style:none;position:relative;padding:4px 0 4px 20px;font:500 14px/1.5 var(--ko);letter-spacing:-.025em;break-inside:avoid}
+.care li::before{content:"";position:absolute;left:0;top:9px;width:12px;height:11px;background:var(--accent);
+  clip-path:path('M6 11C2 8.2 0 6 0 3.7 0 1.6 1.6 0 3.5 0 4.6 0 5.5.6 6 1.4 6.5.6 7.4 0 8.5 0 10.4 0 12 1.6 12 3.7 12 6 10 8.2 6 11Z')}
+.rd{font:500 14px/1.7 var(--ko);color:var(--text);letter-spacing:-.025em;white-space:pre-wrap}
+.empty-hint{font:500 13px var(--ko);color:var(--dim)}
+.card.capturing .empty-hint{display:none}
+
+/* =========== 페어 =========== */
+.pair-row{display:flex;flex-direction:column;gap:12px}
+.rh{display:flex;align-items:baseline;gap:8px;padding:0 6px}
+.rh .hrt{width:14px;height:13px;background:var(--pink);align-self:center;
+  clip-path:path('M7 13C2.5 9.6 0 7 0 4.3 0 2 1.8 0 4 0c1.3 0 2.4.7 3 1.7C7.6.7 8.7 0 10 0c2.2 0 4 2 4 4.3 0 2.7-2.5 5.3-7 8.7Z')}
+.rh h2{font:600 20px var(--en);color:var(--ink)}
+.rh .ko{font:500 13px var(--ko);color:var(--dim)}
+.rh .line{flex:1;height:1px;background:var(--line);margin:0 6px;align-self:center}
+.rh .cnt{font:500 12px var(--en);color:var(--accent);background:var(--box);border:1px solid var(--line);padding:3px 11px;border-radius:20px}
+.pairs{counter-reset:pr;display:grid;gap:14px;grid-auto-rows:250px;grid-template-columns:repeat(4,1fr)}
+.pairs[data-n="1"]{grid-template-columns:1fr}
+.pairs[data-n="2"]{grid-template-columns:repeat(2,1fr)}
+.pairs[data-n="3"]{grid-template-columns:repeat(3,1fr)}
+.pair{counter-increment:pr;position:relative;min-height:0;border-radius:24px;overflow:hidden;overflow:clip;box-shadow:0 16px 32px -22px rgba(40,40,110,.5)}
+.pair::before{content:"No." counter(pr,decimal-leading-zero);position:absolute;left:12px;top:12px;z-index:4;pointer-events:none;
+  font:600 11px var(--en);letter-spacing:.06em;color:var(--accent);background:var(--box);padding:4px 9px;border-radius:20px;opacity:.95}
+.pics{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;gap:3px;background:var(--box)}
+.pics .x{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:2;width:30px;height:30px;border-radius:50%;pointer-events:none;
+  display:grid;place-items:center;background:var(--box);color:var(--accent);font:600 13px var(--en);box-shadow:0 4px 14px rgba(30,30,80,.25)}
+.pics .stamp{display:none}
+.pair .cap{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:36px 14px 12px;
+  background:linear-gradient(180deg,rgba(20,20,40,0),rgba(20,20,40,.55) 45%,rgba(20,20,40,.82))}
+.pair .ab{display:inline-block;font:500 11px var(--en);letter-spacing:.06em;color:#fff;
+  background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);padding:2px 9px;border-radius:20px}
+.pair .pn{font:700 16px var(--ko);color:#fff;letter-spacing:-.03em;margin-top:5px}
+.pair .pk{font:500 12.5px var(--ko);color:color-mix(in srgb,var(--pink) 45%,#fff);margin-top:2px;letter-spacing:-.02em}
+.del{top:12px;right:12px}
+
+/* 짧은 글씨는 줄바꿈 없이 (PNG에서 글꼴 폭이 달라져도 안 깨지게) */
+.cover .bar span,.pill,.handle,.kind,.pair .ab,.foot .lb,.foot .r,.rh h2,.rh .ko,.rh .cnt,.hd h3,.hd .ko,.now .lbl b,.now .lbl span,#nowList li,.chip{white-space:nowrap}
+
+/* 글씨 꾸미기 */
+.card b,.card strong{font-weight:800}
+.card i,.card em{font-style:italic}
+.card u{text-decoration-thickness:1.5px;text-underline-offset:3px}
+.card s{text-decoration-thickness:1.5px}
+.tx-accent{color:var(--accent)}
+.tx-pink{color:color-mix(in srgb,var(--pink) 70%,var(--ink))}
+.cover .tx-accent,.cover .tx-pink{filter:brightness(1.4)}
+.tx-hl{background:linear-gradient(transparent 55%,color-mix(in srgb,var(--accent) 28%,transparent) 55%)}
+.tx-lg{font-size:1.2em}
+.tx-sm{font-size:.82em}
+.pair .tx-accent,.pair .tx-pink{filter:brightness(1.5)}
+
+/* ---------- 하단 ---------- */
+.foot{display:flex;align-items:center;gap:14px;padding:14px 6px 0;border-top:1.5px dashed var(--line)}
+.foot .lb{font:600 11px var(--en);letter-spacing:.14em;color:var(--accent)}
+.foot .msg{font:500 14px var(--ko);color:var(--text);letter-spacing:-.02em}
+.foot .r{margin-left:auto;font:500 14px var(--en);color:var(--dim)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<aside class="panel" id="panel"></aside>
+
+<main class="viewer" id="viewer">
+<div class="stage" id="stage">
+<div class="card adj" id="card">
+
+  <div class="dots" data-deco="dots"></div>
+
+  <!-- 히어로 -->
+  <section class="hero">
+    <div class="cover">
+      <div class="img empty cover-bg" data-label="COVER" data-up></div>
+      <div class="cover-tint"></div>
+      <span class="cover-hint no-png">＋ 빈 곳을 클릭해서 커버 이미지 넣기</span>
+
+      <div class="starfield" data-deco="starfield" hidden></div>
+
+      <svg class="seal" data-deco="seal" viewBox="0 0 100 100" aria-hidden="true">
+        <defs><path id="sealP" d="M50 50 m-36 0 a36 36 0 1 1 72 0 a36 36 0 1 1 -72 0"/></defs>
+        <circle cx="50" cy="50" r="48" fill="currentColor" fill-opacity=".16" stroke="currentColor" stroke-opacity=".6" stroke-width="1"/>
+        <text font-family="Outfit,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" font-size="10.5" font-weight="600" letter-spacing="3.2" fill="currentColor">
+          <textPath href="#sealP">AI CHAT ✦ PROFILE ✦ NICE TO MEET YOU ✦</textPath></text>
+        <path d="M50 36C51 46 54 49 64 50C54 51 51 54 50 64C49 54 46 51 36 50C46 49 49 46 50 36Z" fill="currentColor"/>
+      </svg>
+
+      <div class="bar">
+        <div class="mark" data-deco="bar"><i></i><span contenteditable="true">Profile</span></div>
+        <span class="sub" data-deco="bar" contenteditable="true">AI chat · about me</span>
+        <div class="r" data-deco="pills">
+          <span class="pill" contenteditable="true">AI CHAT</span>
+          <span class="pill" contenteditable="true">2026</span>
+          <span class="pill on" contenteditable="true">ONLINE</span>
+        </div>
+      </div>
+      <span class="big" data-deco="big"><span contenteditable="true">hello ♡</span></span>
+      <div class="msg" data-deco="msg">
+        <p class="hey" contenteditable="true">Hello, nice to meet you ♡</p>
+        <p class="mt" contenteditable="true">하고 싶은 말을 자유롭게 적어주세요. 짧은 인사나 부탁하고 싶은 것 같은 거요!</p>
+      </div>
+      <div class="wave" data-deco="wave" hidden></div>
+    </div>
+
+    <div class="pf-wrap">
+      <span class="ring" data-deco="ring"></span>
+      <div class="pf-area shape-circle" id="pfArea">
+        <div class="pf"><div class="img empty" data-label="PROFILE" data-up></div></div>
+      </div>
+    </div>
+
+    <div class="who">
+      <h1 class="name" contenteditable="true">닉네임</h1>
+      <div class="meta">
+        <span class="handle" contenteditable="true">@your_id</span><span class="dot"></span>
+        <span class="kind" contenteditable="true">AI 채팅 · 캐릭터 제작 &amp; 플레이 계정</span>
+      </div>
+    </div>
+
+    <div class="now">
+      <p class="lbl"><b contenteditable="true">NOW</b><span contenteditable="true">버닝 중</span></p>
+      <ul id="nowList">
+        <li contenteditable="true">요즘 빠져있는 장르나 캐릭터</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 가운데 -->
+  <section class="mid">
+    <div class="blk box infob">
+      <div class="hd"><span class="ic">✦</span><h3 contenteditable="true">Info</h3><span class="ko" contenteditable="true">소개</span><span class="no">01</span></div>
+      <ul class="info" id="info">
+        <li contenteditable="true"><b>주로 쓰는 플랫폼</b>을 적어주세요. 간간이 쓰는 곳도 함께!</li>
+        <li contenteditable="true">어떤 계정인지, <b>주로 올리는 것</b>을 적어주세요.</li>
+        <li contenteditable="true">소통 스타일이나 <b>부탁하고 싶은 것</b>을 적어주세요.</li>
+        <li contenteditable="true">AI 이미지를 올릴 때는 <b>AI 제작 표시</b>를 달아요.</li>
+      </ul>
+    </div>
+    <div class="blk box typeb">
+      <div class="hd"><span class="ic">#</span><h3 contenteditable="true">Type</h3><span class="ko" contenteditable="true">성향</span><span class="no">02</span></div>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="blk box ng">
+      <div class="hd"><span class="ic">✕</span><h3 contenteditable="true">NG</h3><span class="ko" contenteditable="true">지양해 주세요</span><span class="no">03</span></div>
+      <ul id="ngList"></ul>
+    </div>
+    <div class="blk box readme">
+      <div class="hd"><span class="ic">✎</span><h3 contenteditable="true">Read me</h3><span class="ko" contenteditable="true">읽어 주세요</span><span class="no">04</span></div>
+      <p class="rd" id="readme" contenteditable="true">팔로우 전에 읽어주면 좋은 이야기를 자유롭게 적어주세요.<br>Enter로 줄을 바꿀 수 있어요.</p>
+    </div>
+    <div class="blk box care">
+      <div class="hd"><span class="ic">♡</span><h3 contenteditable="true">배려리스트</h3><span class="no">05</span></div>
+      <ul id="careList">
+        <li contenteditable="true">배려하고 있는 드림캐 이름</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 페어 -->
+  <section class="pair-row">
+    <div class="rh"><span class="hrt"></span><h2 contenteditable="true">PAIR</h2><span class="ko" contenteditable="true">페어</span><span class="line"></span><span class="cnt"><span id="pairCnt"></span></span></div>
+    <div class="pairs" id="pairs"></div>
+  </section>
+
+  <footer class="foot">
+    <span class="lb" contenteditable="true">NOTICE</span>
+    <span class="msg" contenteditable="true">뮤트 단어가 많아요. 중요한 연락은 디엠 · 멘션으로 주세요</span>
+    <span class="r">made by @Cookie_B_A</span>
+  </footer>
+
+</div>
+</div>
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+<script>
+/* =========================================================
+   ✏️ 템플릿 색 — 여기서 추가/수정할 수 있어요
+   ========================================================= */
+const LIGHT = { '--bg':'#f8f8fd', '--box':'#fff', '--chip':'#f3f3f9', '--ink':'#1c1e3b', '--text':'#565a7e', '--dim':'#a3a6c4', '--line':'#ebecf6', '--on':'#fff' };
+const theme = (id, name, accent, pink, extra = {}) => ({ id, name, swatch:[extra['--c1'] || accent, pink],
+  vars: Object.assign({}, LIGHT, { '--accent':accent, '--pink':pink }, extra) });
+window.MAKER = {
+  key: 'profile-hero-v6',
+  title: 'Profile <span>·</span> 성향표',
+  credit: 'made by @Cookie_B_A',
+  startPairs: 4,
+  themes: [
+    theme('violet', '청보라', '#5b5ef0', '#f3a5c8'),
+    theme('red',    '빨강',   '#e5484d', '#ffb2a6', { '--bg':'#fdf8f8', '--chip':'#f9f2f2', '--line':'#f3e8e8' }),
+    theme('orange', '주황',   '#f0782a', '#ffcf86', { '--bg':'#fdf9f5', '--chip':'#faf4ee', '--line':'#f3ebe3' }),
+    theme('yellow', '노랑',   '#eaa800', '#ffe08a', { '--bg':'#fdfbf3', '--chip':'#f8f4e6', '--line':'#f1ead3', '--on':'#2e2400', '--cover-ink':'#3a2e00' }),
+    theme('green',  '초록',   '#2fa866', '#bde8a6', { '--bg':'#f6fbf8', '--chip':'#eef6f1', '--line':'#e2efe7' }),
+    theme('sky',    '하늘',   '#2e9fe6', '#aee2ff', { '--bg':'#f5fafd', '--chip':'#edf5fa', '--line':'#e1edf5' }),
+    theme('blue',   '파랑',   '#3157e0', '#a8bfff', { '--bg':'#f6f8fd', '--chip':'#eef1fa', '--line':'#e3e8f5' }),
+    theme('purple', '보라',   '#8a55ee', '#e3b9ff', { '--bg':'#faf7fd', '--chip':'#f4effa', '--line':'#ece4f5' }),
+    theme('pink',   '핑크',   '#ec5f9e', '#ffc0d9', { '--bg':'#fdf7fa', '--chip':'#f9eff4', '--line':'#f3e4ec' }),
+    theme('white',  '화이트', '#4b4e60', '#cfd2dd', { '--bg':'#fafafa', '--chip':'#f2f2f4', '--line':'#ececef',
+      '--c1':'#f4f4f7', '--c2':'#e9eaf0', '--c3':'#dddfe8', '--cover-ink':'#2a2c3a' }),
+    theme('black',  '검정',   '#ececf3', '#9a9aae', { '--bg':'#111117', '--box':'#1b1b24', '--chip':'#262632', '--ink':'#f4f4f8',
+      '--text':'#b9b9c9', '--dim':'#6f6f84', '--line':'#2b2b38', '--on':'#111117',
+      '--c1':'#24242f', '--c2':'#3a3a4b', '--c3':'#5c5c72', '--cover-ink':'#fff', '--panel-accent':'#2b2b38' })
+  ],
+  decos: [['bar','상단 글씨'],['pills','상단 배지'],['big','큰 글씨'],['msg','인사말'],['seal','원형 도장'],
+          ['starfield','별가루'],['wave','레이스 테두리'],['ring','프로필 점선'],['dots','배경 도트']]
+};
+</script>
+<script>
+/* =========================================================
+   성향표 메이커 기능
+   ✏️ 태그 버튼 목록은 여기서 바꾸면 돼요
+   ========================================================= */
+const TYPE_PRESETS = ['성인','미성년','제작','소비','RT','마음','인용','타임대화','사담','앓이','로그 공유','배포','연성','AI이미지'];
+const DEFAULT_TYPES = [];   // 처음엔 아무 태그도 없어요
+const SHAPES = [['circle','원형'],['square','사각'],['round','둥근사각'],['arch','아치'],
+                ['hexa','육각'],['octa','팔각'],['diamond','마름모'],['flower','별꽃']];
+const FILTERS = [['none','원본'],['bright','밝게'],['dark','어둡게'],['vivid','선명'],['soft','몽환'],
+                 ['mono','흑백'],['sepia','세피아'],['vintage','빈티지'],['cool','차갑게'],['warm','따뜻하게'],['blur','흐리게']];
+const TINTS = [['none','없음'],['light','테마색 살짝'],['strong','테마색 진하게'],['shade','어둡게 깔기']];
+
+(function(){
+const CFG = Object.assign({ key:'persona', startPairs:4, maxPairs:8 }, window.MAKER || {});
+const MAX_NOW = 4, MAX_INFO = 7, MAX_CARE = 30;
+const COLOR_KEYS = [['--accent','포인트'],['--pink','서브'],['--bg','배경'],['--box','카드'],['--ink','글씨'],
+                    ['--c1','헤더 왼쪽'],['--c2','헤더 가운데'],['--c3','헤더 오른쪽'],['--cover-ink','헤더 글씨']];
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const card = $('#card');
+const btns = (arr, attr) => arr.map(([v,t]) => `<button class="btn" data-${attr}="${v}">${t}</button>`).join('');
+
+/* =========================================================
+   패널
+   ========================================================= */
+$('#panel').innerHTML = `
+  <div class="ph">
+    <h1>${CFG.title || '성향표 메이커'}</h1>
+    <p class="lead">글자는 <b>클릭해서 수정</b>, 글자를 <b>드래그하면 꾸미기 도구</b>가 떠요. 사진 칸은 <b>클릭하거나 파일을 끌어다 놓으면</b> 올라가요.</p>
+  </div>
+
+  <section class="grp" data-g="theme"><h4>템플릿 색</h4><div class="gb">
+    <div class="themes" id="themes"></div>
+  </div></section>
+
+  <section class="grp" data-g="color"><h4>색 직접 정하기</h4><div class="gb">
+    <div class="cpick" id="cpick"></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="cReset">직접 정한 색 지우기</button></div>
+    <p class="hint">템플릿을 고른 뒤 원하는 색만 바꿔요. 다른 템플릿을 누르면 직접 정한 색은 지워져요.</p>
+  </div></section>
+
+  <section class="grp" data-g="header"><h4>헤더</h4><div class="gb">
+    <label class="sl"><span>헤더 높이</span><input type="range" id="covH" min="200" max="460" step="2"><b id="covHv"></b></label>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="covUp">커버 사진 넣기</button>
+      <button class="btn" id="covDel">사진 지우기</button>
+    </div>
+    <div id="covCtl">
+      <p class="sub">사진 맞춤</p>
+      <div class="row seg" id="covFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
+      <label class="sl"><span>높낮이</span><input type="range" id="covY" min="0" max="100" step="1"><b id="covYv"></b></label>
+      <label class="sl"><span>좌우</span><input type="range" id="covX" min="0" max="100" step="1"><b id="covXv"></b></label>
+      <label class="sl"><span>크기</span><input type="range" id="covZ" min="50" max="300" step="1"><b id="covZv"></b></label>
+      <p class="hint" style="margin-top:4px">헤더 사진을 직접 끌어서 옮기거나, 휠로 확대할 수도 있어요.</p>
+      <p class="sub">보정</p><div class="fltgrid" id="covFlt">${btns(FILTERS,'v')}</div>
+      <p class="sub">색 덮기</p><div class="fltgrid" id="covTint">${btns(TINTS,'v')}</div>
+    </div>
+    <p class="sub">상단 배지 <span style="font-weight:500">(카드에서 글씨를 다 지우면 배지도 사라져요)</span></p>
+    <div class="pills-ed" id="pillEd"></div>
+    <p class="hint" id="pillHint" style="margin:0 0 6px">⠿ 손잡이를 끌어서 순서를 바꿀 수 있어요.</p>
+    <div class="add"><input id="pillIn" placeholder="배지 글씨 입력 후 Enter" maxlength="16"><button id="pillAdd">추가</button></div>
+    <p class="sub">꾸미기 <span style="font-weight:500">(누르면 켜지고 꺼져요)</span></p>
+    <div class="toggles" id="decoT"></div>
+  </div></section>
+
+  <section class="grp" data-g="shape"><h4>프로필 모양</h4><div class="gb"><div class="shapes" id="shapes"></div></div></section>
+
+  <section class="grp" data-g="photo"><h4>사진 조절 <span class="n" id="adjWho"></span></h4><div class="gb">
+    <p class="hint" id="adjHint" style="margin-top:0">프로필이나 페어 사진을 클릭하면 여기서 조절할 수 있어요.</p>
+    <div id="adjCtl" hidden>
+      <div class="row seg" id="adjFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
+      <label class="sl"><span>높낮이</span><input type="range" id="adjY" min="0" max="100" step="1"><b id="adjYv"></b></label>
+      <label class="sl"><span>좌우</span><input type="range" id="adjX" min="0" max="100" step="1"><b id="adjXv"></b></label>
+      <label class="sl"><span>크기</span><input type="range" id="adjZ" min="50" max="300" step="1"><b id="adjZv"></b></label>
+      <p class="sub">보정</p><div class="fltgrid" id="adjFlt">${btns(FILTERS,'v')}</div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="adjSwap">사진 바꾸기</button><button class="btn" id="adjReset">원래대로</button></div>
+      <div class="row" style="margin-top:6px"><button class="btn" id="adjDel">사진 지우기</button><button class="btn pri" id="adjDone">선택 끝</button></div>
+    </div>
+  </div></section>
+
+  <section class="grp" data-g="now"><h4>NOW 버닝 중 <span class="n" id="nowN"></span></h4><div class="gb">
+    <div class="row"><button class="btn" id="nowMinus">− 삭제</button><button class="btn" id="nowPlus">+ 추가</button></div>
+    <p class="hint">NOW 칸에서 Enter를 눌러도 하나 더 생겨요.</p>
+  </div></section>
+
+  <section class="grp" data-g="info"><h4>INFO 줄 <span class="n" id="infoN"></span></h4><div class="gb">
+    <div class="row"><button class="btn" id="infoMinus">− 줄 삭제</button><button class="btn" id="infoPlus">+ 줄 추가</button></div>
+    <p class="hint">Enter를 누르면 다음 줄이 생기고, Shift+Enter를 누르면 같은 줄 안에서 줄바꿈돼요.</p>
+  </div></section>
+
+  <section class="grp" data-g="type"><h4>TYPE 태그</h4><div class="gb">
+    <div class="toggles" id="typeT"></div>
+    <div class="add"><input id="typeIn" placeholder="직접 입력" maxlength="14"><button id="typeAdd">추가</button></div>
+    <p class="hint">카드의 태그를 누르면 색이 바뀌어요.</p>
+  </div></section>
+
+  <section class="grp" data-g="ng"><h4>NG 항목</h4><div class="gb">
+    <div class="row seg" id="ngCol" style="margin-bottom:8px">${btns([['1','1줄로 쓰기'],['2','2칸으로 나누기']],'v')}</div>
+    <div class="toggles rm" id="ngT"></div>
+    <div class="add"><input id="ngIn" placeholder="NG 항목 입력 후 Enter" maxlength="30"><button id="ngAdd">추가</button></div>
+    <p class="hint">위 목록에서 누르면 지워져요.</p>
+  </div></section>
+
+  <section class="grp" data-g="care"><h4>배려리스트 <span class="n" id="careN"></span></h4><div class="gb">
+    <div class="row seg" id="careCol" style="margin-bottom:8px">${btns([['1','1줄로 쓰기'],['2','2칸으로 나누기']],'v')}</div>
+    <div class="row"><button class="btn" id="careMinus">− 줄 삭제</button><button class="btn" id="carePlus">+ 줄 추가</button></div>
+    <p class="hint">카드의 배려리스트에 바로 적어요. Enter를 누르면 다음 줄이 생기고, Shift+Enter는 같은 줄 안에서 줄바꿈이에요.</p>
+  </div></section>
+
+  <section class="grp" data-g="pair"><h4>페어 <span class="n" id="pairN"></span></h4><div class="gb">
+    <div class="row seg" id="pairMode" style="margin-bottom:6px">${btns([['duo','A × B 나눠서'],['one','이미지 1장']],'v')}</div>
+    <div class="row"><button class="btn" id="pairMinus">− 줄이기</button><button class="btn" id="pairPlus">+ 늘리기</button></div>
+    <p class="hint">한 줄에 4개씩 아래로 늘어나요. 개수 제한은 없어요. 카드에 마우스를 올리면 ✕로 원하는 페어만 지울 수 있어요.</p>
+  </div></section>
+
+  <div class="dock">
+    <button class="btn pri" id="save">↓ PNG 저장</button>
+    <button class="btn" id="reset" title="처음 상태로 되돌리기">초기화</button>
+  </div>`;
+
+/* 글씨 꾸미기 도구 (드래그하면 떠요) */
+const TEXT_COLORS = ['#1c1e3b','#ffffff','#8a8fa8','#e5484d','#f0782a','#eaa800','#2fa866','#2e9fe6','#3157e0','#8a55ee','#ec5f9e','#a0522d'];
+const fmt = document.createElement('div');
+fmt.className = 'fmt'; fmt.hidden = true;
+fmt.innerHTML = `
+  <div class="fr">
+    <button data-t="b" title="굵게 (Ctrl+B)"><b>B</b></button>
+    <button data-t="i" title="기울임 (Ctrl+I)"><i>I</i></button>
+    <button data-t="u" title="밑줄 (Ctrl+U)"><u>U</u></button>
+    <button data-t="s" title="취소선"><s>S</s></button>
+    <span class="sep"></span>
+    <button data-x="color" class="cbtn" title="글자 색"><span class="ca">A</span><span class="cbar"></span></button>
+    <button data-w="tx-hl" title="형광펜"><span class="sw h">가</span></button>
+    <span class="sep"></span>
+    <button data-w="tx-lg" title="크게">가<sup>+</sup></button>
+    <button data-w="tx-sm" title="작게">가<sup>−</sup></button>
+    <span class="sep"></span>
+    <button data-x="clear" title="꾸미기 지우기">⌫</button>
+  </div>
+  <div class="fp" hidden>
+    <p>테마 색</p>
+    <div class="sws">
+      <button data-cc="tx-accent" title="테마 포인트 색" style="background:var(--accent)"></button>
+      <button data-cc="tx-pink" title="테마 서브 색" style="background:var(--pink)"></button>
+    </div>
+    <p>기본 색</p>
+    <div class="sws">${TEXT_COLORS.map(c => `<button data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
+    <div class="fpb">
+      <label class="pick">직접 고르기 <input type="color" value="#5b5ef0"></label>
+      <button data-cc="none" class="nocol">색 없애기</button>
+    </div>
+  </div>`;
+document.body.appendChild(fmt);
+
+/* =========================================================
+   저장된 작업 불러오기
+   ========================================================= */
+let saved = {};
+try {
+  const d = JSON.parse(localStorage.getItem(CFG.key) || 'null');
+  if (d && d.html){ card.innerHTML = d.html; saved = d; }
+} catch(e){}
+card.querySelectorAll('.sel').forEach(el => el.classList.remove('sel'));
+card.querySelectorAll('[contenteditable] img').forEach(i => i.replaceWith(document.createTextNode(i.alt || '')));
+/* 예전 버전의 위치값(translate)을 새 방식으로 정리 */
+card.querySelectorAll('.img').forEach(el => { el.style.removeProperty('--x'); el.style.removeProperty('--y'); });
+
+const chips = $('#chips'), ngList = $('#ngList'), careList = $('#careList'), pairs = $('#pairs'), cover = card.querySelector('.cover-bg');
+
+/* =========================================================
+   자동 저장
+   ========================================================= */
+let timer, theme = null, over = {};
+function save(){
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    try {
+      const k = sel; if (k) k.classList.remove('sel');
+      const html = card.innerHTML;
+      if (k) k.classList.add('sel');
+      localStorage.setItem(CFG.key, JSON.stringify({ html, theme, over }));
+    } catch(e){ console.warn('자동 저장 실패 (사진 용량이 클 수 있어요)', e); }
+  }, 400);
+}
+card.addEventListener('input', save);
+
+/* =========================================================
+   패널 접기 / 펴기
+   ========================================================= */
+const UIKEY = CFG.key + '-ui';
+let closed = [];
+try { closed = JSON.parse(localStorage.getItem(UIKEY) || '[]'); } catch(e){}
+$$('#panel .grp').forEach(g => {
+  if (closed.includes(g.dataset.g)) g.classList.add('closed');
+  g.querySelector('h4').onclick = () => {
+    g.classList.toggle('closed');
+    closed = $$('#panel .grp.closed').map(x => x.dataset.g);
+    try { localStorage.setItem(UIKEY, JSON.stringify(closed)); } catch(e){}
+  };
+});
+function openGroup(name){
+  const g = $(`#panel .grp[data-g="${name}"]`); if (!g) return;
+  g.classList.remove('closed');
+  g.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  g.classList.remove('flash'); void g.offsetWidth; g.classList.add('flash');
+}
+
+/* =========================================================
+   템플릿 색
+   ========================================================= */
+const TKEYS = ['--panel-accent','--accent','--pink','--bg','--box','--chip','--ink','--text','--dim','--line','--on','--c1','--c2','--c3','--cover-ink'];
+function applyTheme(name, overrides){
+  const t = CFG.themes.find(x => x.id === name) || CFG.themes[0];
+  const root = document.documentElement.style;
+  TKEYS.forEach(k => root.removeProperty(k));
+  Object.entries(t.vars).forEach(([k,v]) => root.setProperty(k, v));
+  theme = t.id; over = Object.assign({}, overrides || {});
+  applyOver();
+}
+/* 직접 정한 색 덮어쓰기 (글씨·카드 색을 바꾸면 흐린 글씨·선 색도 같이 맞춰요) */
+function applyOver(){
+  const root = document.documentElement.style;
+  Object.entries(over).forEach(([k,v]) => root.setProperty(k, v));
+  if (over['--ink'] || over['--box']){
+    root.setProperty('--text', 'color-mix(in srgb, var(--ink) 72%, var(--box))');
+    root.setProperty('--dim',  'color-mix(in srgb, var(--ink) 42%, var(--box))');
+    root.setProperty('--line', 'color-mix(in srgb, var(--ink) 10%, var(--box))');
+    root.setProperty('--chip', 'color-mix(in srgb, var(--ink) 6%, var(--box))');
+  }
+  $$('#themes button').forEach(b => b.classList.toggle('on', b.dataset.t === theme));
+  syncPick(); save();
+}
+const probe = document.createElement('i'); probe.style.display = 'none'; document.body.appendChild(probe);
+function toHex(v){
+  probe.style.color = ''; probe.style.color = `var(${v})`;
+  const c = getComputedStyle(probe).color, n = c.match(/[\d.]+/g) || [0,0,0];
+  const k = c.startsWith('color(') ? 255 : 1;
+  return '#' + n.slice(0,3).map(x => Math.round(Math.min(255, x * k)).toString(16).padStart(2,'0')).join('');
+}
+$('#cpick').innerHTML = COLOR_KEYS.map(([k,t]) => `<label><input type="color" data-k="${k}"><span>${t}</span></label>`).join('');
+function syncPick(){
+  $$('#cpick input').forEach(i => { i.value = toHex(i.dataset.k); i.parentElement.classList.toggle('on', !!over[i.dataset.k]); });
+}
+$('#cpick').oninput = e => { const i = e.target.closest('input'); if (!i) return; over[i.dataset.k] = i.value; applyOver(); };
+$('#cReset').onclick = () => applyTheme(theme, {});
+$('#themes').innerHTML = CFG.themes.map(t =>
+  `<button data-t="${t.id}" title="${t.name}"><i style="background:linear-gradient(135deg,${t.swatch[0]} 50%,${t.swatch[1]} 50%)"></i><span>${t.name}</span></button>`).join('');
+$('#themes').onclick = e => { const b = e.target.closest('button'); if (b) applyTheme(b.dataset.t, {}); };
+
+/* =========================================================
+   사진: 올리기 · 위치 · 크기 · 보정
+   ========================================================= */
+const num = (el, k, d) => { const v = parseFloat(el.style.getPropertyValue(k)); return isNaN(v) ? d : v; };
+const file = document.createElement('input');
+file.type = 'file'; file.accept = 'image/*'; file.hidden = true; document.body.appendChild(file);
+let target = null;
+
+function loadFile(f, el){
+  if (!f || !f.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const im = new Image();
+    im.onload = () => {   // 자동 저장 용량 때문에 줄여서 넣어요
+      const max = el.classList.contains('cover-bg') ? 2000 : 1200;
+      const k = Math.min(1, max / Math.max(im.width, im.height));
+      const c = document.createElement('canvas');
+      c.width = im.width * k; c.height = im.height * k;
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      el.style.setProperty('--img', `url(${c.toDataURL('image/jpeg', .9)})`);
+      el.classList.remove('empty');
+      if (el === cover){ syncCover(); openGroup('header'); } else select(el);
+      save();
+    };
+    im.src = r.result;
+  };
+  r.readAsDataURL(f);
+}
+file.onchange = () => { if (target) loadFile(file.files[0], target); };
+function pick(el){ target = el; file.value = ''; file.click(); }
+
+/* 공통 컨트롤 묶기 (헤더용 cov / 선택 사진용 adj) */
+function controls(p, getEl){
+  const show = () => {
+    const el = getEl(); if (!el) return;
+    $(`#${p}Z`).value = Math.round(num(el,'--z',1) * 100); $(`#${p}Zv`).textContent = $(`#${p}Z`).value + '%';
+    $(`#${p}X`).value = num(el,'--px',50); $(`#${p}Xv`).textContent = $(`#${p}X`).value;
+    $(`#${p}Y`).value = num(el,'--py',50); $(`#${p}Yv`).textContent = $(`#${p}Y`).value;
+    $$(`#${p}Fit button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.fit || 'cover')));
+    $$(`#${p}Flt button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.flt || 'none')));
+    if ($(`#${p}Tint`)) $$(`#${p}Tint button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.tint || 'none')));
+  };
+  const set = () => {
+    const el = getEl(); if (!el) return;
+    el.style.setProperty('--z', $(`#${p}Z`).value / 100);
+    el.style.setProperty('--px', $(`#${p}X`).value + '%');
+    el.style.setProperty('--py', $(`#${p}Y`).value + '%');
+    show(); save();
+  };
+  [`#${p}Z`,`#${p}X`,`#${p}Y`].forEach(id => $(id).oninput = set);
+  const data = (box, k, def) => $(box).onclick = e => {
+    const b = e.target.closest('button'), el = getEl(); if (!b || !el) return;
+    b.dataset.v === def ? delete el.dataset[k] : el.dataset[k] = b.dataset.v;
+    show(); save();
+  };
+  data(`#${p}Fit`, 'fit', 'cover'); data(`#${p}Flt`, 'flt', 'none');
+  if ($(`#${p}Tint`)) data(`#${p}Tint`, 'tint', 'none');
+  return show;
+}
+const clearImg = el => { ['--img','--z','--px','--py'].forEach(k => el.style.removeProperty(k)); ['fit','flt','tint'].forEach(k => delete el.dataset[k]); el.classList.add('empty'); };
+
+/* 헤더 사진 */
+const showCov = controls('cov', () => cover);
+function syncCover(){
+  const has = !cover.classList.contains('empty');
+  $('#covCtl').hidden = !has;
+  $('#covUp').textContent = has ? '커버 사진 바꾸기' : '커버 사진 넣기';
+  $('#covDel').disabled = !has;
+  showCov();
+}
+$('#covUp').onclick = () => pick(cover);
+$('#covDel').onclick = () => { clearImg(cover); syncCover(); save(); };
+
+/* 헤더 높이 */
+function setCov(h, silent){
+  const hero = card.querySelector('.hero');
+  hero.style.setProperty('--cov', h + 'px');
+  $('#covH').value = h; $('#covHv').textContent = h + 'px';
+  fit(); fitBig(); if (!silent) save();
+}
+$('#covH').oninput = e => setCov(+e.target.value);
+
+/* 프로필 · 페어 사진 선택 */
+let sel = null;
+const showAdj = controls('adj', () => sel);
+function select(el){
+  if (sel) sel.classList.remove('sel');
+  sel = el;
+  $('#adjCtl').hidden = !el; $('#adjHint').hidden = !!el;
+  $('#adjWho').textContent = !el ? '' : el.closest('.pf') ? '프로필' : '페어 No.' + String([...pairs.children].indexOf(el.closest('.pair')) + 1).padStart(2,'0');
+  if (!el) return;
+  el.classList.add('sel'); showAdj(); openGroup('photo');
+}
+$('#adjSwap').onclick = () => { if (sel) pick(sel); };
+$('#adjReset').onclick = () => { if (!sel) return; ['--z','--px','--py'].forEach(k => sel.style.removeProperty(k)); ['fit','flt'].forEach(k => delete sel.dataset[k]); showAdj(); save(); };
+$('#adjDel').onclick = () => { if (!sel) return; clearImg(sel); select(null); save(); };
+$('#adjDone').onclick = () => select(null);
+
+/* 카드에서 사진 클릭 */
+let dragMoved = false;
+card.addEventListener('click', e => {
+  if (dragMoved){ dragMoved = false; return; }
+  const t = e.target.closest('[data-up]'); if (!t) return;
+  if (t.classList.contains('empty')) return pick(t);
+  if (t === cover){ openGroup('header'); return; }
+  select(t);
+});
+
+/* 사진을 끌어서 옮기기 + 휠로 확대 */
+const movable = el => el && !el.classList.contains('empty') && (el === cover || el === sel);
+card.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-up]');
+  if (!movable(el) || e.target.closest('[contenteditable]')) return;
+  const r = el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
+  const px0 = num(el,'--px',50), py0 = num(el,'--py',50);
+  dragMoved = false;
+  const move = ev => {
+    const dx = ev.clientX - sx, dy = ev.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
+    el.style.setProperty('--px', Math.max(0, Math.min(100, px0 - dx / r.width * 100)).toFixed(1) + '%');
+    el.style.setProperty('--py', Math.max(0, Math.min(100, py0 - dy / r.height * 100)).toFixed(1) + '%');
+    el === cover ? showCov() : showAdj();
+  };
+  const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (dragMoved) save(); };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+});
+card.addEventListener('wheel', e => {
+  const el = e.target.closest('[data-up]');
+  if (!movable(el)) return;
+  e.preventDefault();
+  const z = Math.max(.5, Math.min(3, num(el,'--z',1) - Math.sign(e.deltaY) * .05));
+  el.style.setProperty('--z', z.toFixed(2));
+  el === cover ? showCov() : showAdj(); save();
+}, { passive:false });
+
+/* 파일을 사진 칸에 끌어다 놓기 */
+card.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files') && e.target.closest('[data-up]')) e.preventDefault(); });
+
+/* =========================================================
+   글씨: 붙여넣기는 글자만 · Enter 처리 · 꾸미기 도구
+   ========================================================= */
+function clipText(dt){
+  const html = dt.getData('text/html');
+  if (html && /<img/i.test(html)){
+    const d = document.createElement('div'); d.innerHTML = html;
+    d.querySelectorAll('img').forEach(i => i.replaceWith(document.createTextNode(i.getAttribute('alt') || '')));
+    d.querySelectorAll('br,p,div,li').forEach(n => n.append(' '));
+    return d.textContent;
+  }
+  return dt.getData('text/plain');
+}
+function insertPlain(e, dt){
+  e.preventDefault();
+  const text = clipText(dt).replace(/\s*\n\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  if (text) document.execCommand('insertText', false, text);
+}
+card.addEventListener('paste', e => { if (e.target.closest?.('[contenteditable]')) insertPlain(e, e.clipboardData); });
+card.addEventListener('drop', e => {
+  const up = e.target.closest?.('[data-up]');
+  if (up && e.dataTransfer.files.length){ e.preventDefault(); loadFile(e.dataTransfer.files[0], up); return; }
+  if (e.target.closest?.('[contenteditable]')) insertPlain(e, e.dataTransfer);
+});
+
+/* Enter: INFO·NOW는 다음 줄 추가, 나머지는 줄바꿈 대신 입력 끝 (Shift+Enter는 줄바꿈) */
+card.addEventListener('keydown', e => {
+  const ed = e.target.closest?.('[contenteditable]'); if (!ed || e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  if (ed.closest('.big, .pill, .name, .handle')){ ed.blur(); return; }
+  if (e.shiftKey || ed.id === 'readme'){ document.execCommand('insertLineBreak'); return; }
+  const list = ed.closest('#info, #nowList, #careList');
+  if (list && ed.tagName === 'LI'){
+    const max = list.id === 'info' ? MAX_INFO : list.id === 'careList' ? MAX_CARE : MAX_NOW;
+    if (list.children.length >= max) return;
+    const li = document.createElement('li'); li.contentEditable = 'true';
+    ed.after(li); li.focus(); syncLists(); save(); return;
+  }
+  ed.blur();
+});
+/* Ctrl+B / I / U 도 같은 방식으로 */
+card.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || !e.target.closest?.('[contenteditable]')) return;
+  const m = { b:'b', i:'i', u:'u' }[e.key.toLowerCase()]; if (!m) return;
+  e.preventDefault(); fmt.querySelector(`[data-t="${m}"]`).click();
+});
+/* 빈 줄에서 Backspace → 줄 지우기 */
+card.addEventListener('keydown', e => {
+  const ed = e.target.closest?.('li[contenteditable]'); if (!ed || e.key !== 'Backspace' || ed.textContent !== '') return;
+  const list = ed.closest('#info, #nowList, #careList'); if (!list || list.children.length <= 1) return;
+  e.preventDefault();
+  const prev = ed.previousElementSibling || ed.nextElementSibling;
+  ed.remove(); syncLists(); save();
+  if (prev){ prev.focus(); const r = document.createRange(); r.selectNodeContents(prev); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+});
+
+/* 꾸미기 도구 */
+function selRange(){
+  const s = getSelection(); if (!s.rangeCount || s.isCollapsed) return null;
+  const r = s.getRangeAt(0);
+  const ed = (r.commonAncestorContainer.nodeType === 1 ? r.commonAncestorContainer : r.commonAncestorContainer.parentElement).closest('[contenteditable]');
+  return ed && card.contains(ed) ? { r, ed } : null;
+}
+let lastX = null, fmtHover = false;
+fmt.addEventListener('pointerenter', () => fmtHover = true);
+fmt.addEventListener('pointerleave', () => fmtHover = false);
+function placeFmt(r){
+  const b = r.getBoundingClientRect();
+  const w = fmt.offsetWidth;
+  fmt.style.left = Math.max(8, Math.min(innerWidth - w - 8, b.left + b.width / 2 - w / 2)) + 'px';
+  const top = b.top - fmt.offsetHeight - 10;
+  fmt.style.top = (top < 8 ? b.bottom + 10 : top) + 'px';
+}
+document.addEventListener('selectionchange', () => {
+  const x = selRange();
+  if (!x){ if (!fmtHover) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; } return; }
+  lastX = { r: x.r.cloneRange(), ed: x.ed };
+  fmt.hidden = false; placeFmt(x.r);
+  const at = (x.r.startContainer.nodeType === 1 ? x.r.startContainer : x.r.startContainer.parentElement);
+  fmt.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', !!at.closest(b.dataset.t) && x.ed.contains(at.closest(b.dataset.t))));
+  fmt.querySelectorAll('.fr [data-w]').forEach(b => b.classList.toggle('on', !!at.closest('.' + b.dataset.w)));
+  const col = at.closest('.tx-c, .tx-accent, .tx-pink');
+  fmt.querySelector('.cbar').style.background = col && x.ed.contains(col) ? getComputedStyle(col).color : 'var(--ink, #1c1e3b)';
+});
+fmt.addEventListener('mousedown', e => { if (!e.target.closest('.pick')) e.preventDefault(); });
+function unwrap(span){ span.replaceWith(...span.childNodes); }
+function reselect(node){ const s = getSelection(); s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(node); s.addRange(nr); }
+function wrapRange(x, tag, cls, style){
+  const sel1 = cls ? '.' + cls : tag, r = x.r;
+  const w = document.createElement(tag); if (cls) w.className = cls; if (style) w.setAttribute('style', style);
+  w.appendChild(r.extractContents());
+  w.querySelectorAll(sel1).forEach(unwrap);
+  r.insertNode(w); reselect(w); return w;
+}
+/* 글자 색: 원래 색을 지우고 새 색으로 */
+const COLSEL = '.tx-c, .tx-accent, .tx-pink';
+function paint(el, kind, value){
+  el.removeAttribute('style'); el.className = '';
+  if (kind === 'class') el.className = value; else { el.className = 'tx-c'; el.style.color = value; }
+}
+function setColor(kind, value){
+  const x = selRange() || lastX; if (!x || !document.contains(x.ed)) return;
+  const r = x.r;
+  const start = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+  const outer = start.closest(COLSEL);
+  let target;
+  if (outer && x.ed.contains(outer) && outer.contains(r.endContainer)){
+    /* 이미 색이 있는 글씨 안: 앞뒤를 떼어내고 가운데만 새 색으로 */
+    const pre = document.createRange(); pre.setStart(outer, 0); pre.setEnd(r.startContainer, r.startOffset);
+    const preF = pre.extractContents();
+    const post = document.createRange(); post.setStart(r.endContainer, r.endOffset); post.setEnd(outer, outer.childNodes.length);
+    const postF = post.extractContents();
+    if (preF.textContent){ const a = outer.cloneNode(false); a.appendChild(preF); outer.before(a); }
+    if (postF.textContent){ const z = outer.cloneNode(false); z.appendChild(postF); outer.after(z); }
+    outer.querySelectorAll(COLSEL).forEach(unwrap);
+    target = outer;
+  } else {
+    target = document.createElement('span');
+    target.appendChild(r.extractContents());
+    target.querySelectorAll(COLSEL).forEach(unwrap);
+    r.insertNode(target);
+  }
+  if (kind === 'none'){
+    const kids = [...target.childNodes]; unwrap(target);
+    const s = getSelection(); s.removeAllRanges();
+    if (kids.length){ const nr = document.createRange(); nr.setStartBefore(kids[0]); nr.setEndAfter(kids[kids.length-1]); s.addRange(nr); }
+  } else { paint(target, kind, value); reselect(target); }
+  x.ed.querySelectorAll('span').forEach(e => { if (!e.textContent) e.remove(); });
+  x.ed.normalize();
+  save(); document.dispatchEvent(new Event('selectionchange'));
+}
+fmt.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.x === 'color'){ const fp = fmt.querySelector('.fp'); fp.hidden = !fp.hidden; if (lastX) placeFmt(lastX.r); return; }
+  if (b.dataset.cc){ setColor(b.dataset.cc === 'none' ? 'none' : 'class', b.dataset.cc); return; }
+  if (b.dataset.c){ setColor('style', b.dataset.c); return; }
+  const x = selRange(); if (!x) return;
+  if (b.dataset.t || b.dataset.w){
+    const tag = b.dataset.t || 'span', cls = b.dataset.w, sel1 = cls ? '.' + cls : tag, r = x.r;
+    const start = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+    const inside = start.closest(sel1);
+    if (inside && x.ed.contains(inside) && inside !== x.ed && inside.contains(r.endContainer)) unwrap(inside);
+    else wrapRange(x, tag, cls);
+  } else if (b.dataset.x === 'clear'){
+    const s = getSelection();
+    x.ed.querySelectorAll('b,i,u,s,strong,em,font,[class^="tx-"],span[style]').forEach(n => { if (s.containsNode(n, true)) unwrap(n); });
+  }
+  save();
+  document.dispatchEvent(new Event('selectionchange'));
+});
+fmt.querySelector('.pick input').addEventListener('change', e => {
+  if (lastX){ const s = getSelection(); s.removeAllRanges(); s.addRange(lastX.r); }
+  setColor('style', e.target.value);
+});
+window.addEventListener('scroll', e => { if (!fmt.contains(e.target)) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; } }, true);
+
+/* =========================================================
+   페어
+   ========================================================= */
+function pairHTML(){
+  return `<article class="pair">
+    <button class="del" title="이 페어 삭제">✕</button>
+    <div class="pics">
+      <div class="img empty a" data-label="A" data-up></div>
+      <div class="img empty b" data-label="B" data-up></div>
+      <span class="x">×</span>
+    </div>
+    <div class="cap">
+      <p class="ab" contenteditable="true">A × B</p>
+      <p class="pn" contenteditable="true">페어명</p>
+      <p class="pk" contenteditable="true">#키워드 #키워드 #키워드</p>
+    </div></article>`;
+}
+function syncPairs(){
+  const n = pairs.children.length;
+  pairs.dataset.n = n;
+  const c = $('#pairCnt'); if (c) c.textContent = String(n).padStart(2,'0');
+  $('#pairN').textContent = n + '개';
+  $('#pairMinus').disabled = n <= 1;
+  fit();
+}
+function setMode(m){
+  pairs.dataset.mode = m;
+  $$('#pairMode button').forEach(b => b.classList.toggle('on', b.dataset.v === m));
+  save();
+}
+$('#pairMode').onclick = e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.v); };
+$('#pairPlus').onclick = () => { pairs.insertAdjacentHTML('beforeend', pairHTML()); syncPairs(); save(); };
+$('#pairMinus').onclick = () => { if (pairs.children.length > 1){ if (sel && pairs.lastElementChild.contains(sel)) select(null); pairs.lastElementChild.remove(); syncPairs(); save(); } };
+pairs.addEventListener('click', e => {
+  if (e.target.classList.contains('del') && pairs.children.length > 1){
+    const p = e.target.closest('.pair'); if (sel && p.contains(sel)) select(null);
+    p.remove(); syncPairs(); save();
+  }
+});
+
+/* =========================================================
+   TYPE
+   ========================================================= */
+const findChip = k => [...chips.children].find(c => c.dataset.k === k);
+function rank(k){ const i = TYPE_PRESETS.indexOf(k); return i < 0 ? Infinity : i; }
+function sortChips(){
+  [...chips.children].map((c, i) => [c, i])
+    .sort((a, b) => (rank(a[0].dataset.k) - rank(b[0].dataset.k)) || (a[1] - b[1]))
+    .forEach(([c]) => chips.appendChild(c));
+}
+function addChip(k, v = 0){
+  if (!k || findChip(k)) return;
+  const s = document.createElement('span');
+  s.className = 'chip v' + v; s.dataset.k = k; s.textContent = k;
+  chips.appendChild(s); sortChips();
+}
+chips.addEventListener('click', e => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  c.className = 'chip v' + ((+(c.className.match(/v(\d)/) || [0,0])[1] + 1) % 4); save();
+});
+function syncTypeHint(){
+  const h = $('#typeHint');
+  if (!chips.children.length){ if (!h) chips.insertAdjacentHTML('afterend', '<p class="empty-hint no-png" id="typeHint">왼쪽 패널에서 TYPE 항목을 추가해 주세요.</p>'); }
+  else if (h) h.remove();
+}
+function buildTypes(){
+  syncTypeHint();
+  const all = [...new Set([...TYPE_PRESETS, ...[...chips.children].map(c => c.dataset.k)])];
+  $('#typeT').innerHTML = all.map(k => `<button data-k="${k}" class="${findChip(k) ? 'on' : ''}">${k}</button>`).join('');
+}
+$('#typeT').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const c = findChip(b.dataset.k); c ? c.remove() : addChip(b.dataset.k);
+  buildTypes(); save();
+};
+
+/* =========================================================
+   NG · 배려 목록 (직접 입력)
+   ========================================================= */
+function listUI(ul, id, label){
+  const sync = () => {
+    const h = $('#' + id + 'Hint');
+    if (!ul.children.length){ if (!h) ul.insertAdjacentHTML('afterend', `<p class="empty-hint no-png" id="${id}Hint">왼쪽 패널에서 ${label} 항목을 추가해 주세요.</p>`); }
+    else if (h) h.remove();
+  };
+  const build = () => {
+    const items = [...ul.children];
+    $('#' + id + 'T').innerHTML = items.length ? items.map((li, i) => `<button data-i="${i}">${li.textContent}</button>`).join('') : '<span class="none">아직 없어요</span>';
+    sync();
+  };
+  $('#' + id + 'T').onclick = e => { const b = e.target.closest('button'); if (!b) return; ul.children[+b.dataset.i]?.remove(); build(); save(); };
+  const setCol = (n, silent) => {
+    ul.classList.toggle('cols2', n === 2);
+    $$('#' + id + 'Col button').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
+    if (!silent) save();
+  };
+  $('#' + id + 'Col').onclick = e => { const b = e.target.closest('button'); if (b) setCol(+b.dataset.v); };
+  bindAdd('#' + id + 'In', '#' + id + 'Add', v => { const li = document.createElement('li'); li.textContent = v; ul.appendChild(li); build(); });
+  return () => { build(); setCol(ul.classList.contains('cols2') ? 2 : 1, true); };
+}
+
+/* 입력칸 */
+function bindAdd(inp, btn, fn){
+  const go = () => { const v = $(inp).value.trim(); if (!v) return; fn(v); $(inp).value = ''; $(inp).focus(); save(); };
+  $(btn).onclick = go; $(inp).onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go(); };
+}
+bindAdd('#typeIn', '#typeAdd', v => { addChip(v); buildTypes(); });
+const initNg = listUI(ngList, 'ng', 'NG');
+
+/* =========================================================
+   INFO · NOW 줄
+   ========================================================= */
+function syncLists(){
+  const info = $('#info'), now = $('#nowList');
+  $('#infoN').textContent = info.children.length + ' / ' + MAX_INFO;
+  $('#infoPlus').disabled = info.children.length >= MAX_INFO; $('#infoMinus').disabled = info.children.length <= 1;
+  $('#nowN').textContent = now.children.length + ' / ' + MAX_NOW;
+  $('#nowPlus').disabled = now.children.length >= MAX_NOW; $('#nowMinus').disabled = now.children.length <= 1;
+  $('#careN').textContent = careList.children.length + '줄';
+  $('#careMinus').disabled = careList.children.length <= 1;
+}
+function addLine(ul, max, text){
+  if (ul.children.length >= max) return;
+  const li = document.createElement('li'); li.contentEditable = 'true'; li.textContent = text;
+  ul.appendChild(li); syncLists(); save();
+}
+$('#infoPlus').onclick = () => addLine($('#info'), MAX_INFO, '새 줄을 적어주세요.');
+$('#infoMinus').onclick = () => { const ul = $('#info'); if (ul.children.length > 1){ ul.lastElementChild.remove(); syncLists(); save(); } };
+$('#nowPlus').onclick = () => addLine($('#nowList'), MAX_NOW, '장르 · 캐릭터 이름');
+$('#nowMinus').onclick = () => { const ul = $('#nowList'); if (ul.children.length > 1){ ul.lastElementChild.remove(); syncLists(); save(); } };
+$('#carePlus').onclick = () => addLine(careList, MAX_CARE, '배려하고 있는 드림캐 이름');
+$('#careMinus').onclick = () => { if (careList.children.length > 1){ careList.lastElementChild.remove(); syncLists(); save(); } };
+function setCareCol(n, silent){
+  careList.classList.toggle('cols2', n === 2);
+  $$('#careCol button').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
+  if (!silent) save();
+}
+$('#careCol').onclick = e => { const b = e.target.closest('button'); if (b) setCareCol(+b.dataset.v); };
+function initCareCol(){ setCareCol(careList.classList.contains('cols2') ? 2 : 1, true); }
+
+/* =========================================================
+   헤더 꾸미기 · 프로필 모양
+   ========================================================= */
+/* 상단 배지 */
+const pillBox = () => card.querySelector('.cover .bar .r');
+function buildPills(){
+  const pills = [...pillBox().querySelectorAll('.pill')];
+  $('#pillEd').innerHTML = pills.length ? pills.map((p, i) => `<div class="pillrow" data-i="${i}">
+      <b class="grip" title="끌어서 순서 바꾸기">⠿</b><span>${p.textContent.replace(/</g,'&lt;')}</span>
+      <button class="btn ${p.classList.contains('on') ? 'on' : ''}" data-a="on" data-i="${i}" title="초록 점 + 흰 배경으로 강조">강조</button>
+      <button class="btn" data-a="del" data-i="${i}" title="지우기">✕</button></div>`).join('')
+    : '<span class="none">배지가 없어요. 아래에서 추가해 주세요.</span>';
+  $('#pillHint').hidden = pills.length < 2;
+}
+$('#pillEd').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const p = pillBox().querySelectorAll('.pill')[+b.dataset.i]; if (!p) return;
+  b.dataset.a === 'del' ? p.remove() : p.classList.toggle('on');
+  buildPills(); save();
+};
+/* 끌어서 순서 바꾸기 */
+$('#pillEd').addEventListener('pointerdown', e => {
+  const grip = e.target.closest('.grip'); if (!grip) return;
+  e.preventDefault();
+  const row = grip.closest('.pillrow'), list = $('#pillEd');
+  row.classList.add('dragging');
+  const move = ev => {
+    const rows = [...list.querySelectorAll('.pillrow:not(.dragging)')];
+    const after = rows.find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+    after ? list.insertBefore(row, after) : list.appendChild(row);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    row.classList.remove('dragging');
+    const box = pillBox(), pills = [...box.querySelectorAll('.pill')];
+    [...list.querySelectorAll('.pillrow')].forEach(r => box.appendChild(pills[+r.dataset.i]));
+    buildPills(); save();
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+});
+bindAdd('#pillIn', '#pillAdd', v => {
+  const s = document.createElement('span'); s.className = 'pill'; s.contentEditable = 'true'; s.textContent = v;
+  const box = pillBox(); box.appendChild(s);
+  if (box.hasAttribute('hidden')){ box.removeAttribute('hidden'); buildDecos(); }
+  buildPills();
+});
+card.addEventListener('input', e => { if (e.target.classList?.contains('pill')) buildPills(); });
+/* 배지 글씨를 다 지우고 나가면 배지가 사라져요 */
+card.addEventListener('focusout', e => {
+  const p = e.target; if (!p.classList?.contains('pill') || p.textContent.trim()) return;
+  p.remove(); buildPills(); save();
+});
+
+function buildDecos(){
+  $('#decoT').innerHTML = CFG.decos.map(([k,label]) => {
+    const el = card.querySelector(`[data-deco="${k}"]`);
+    return `<button data-k="${k}" class="${el && !el.hasAttribute('hidden') ? 'on' : ''}">${label}</button>`;
+  }).join('');
+}
+$('#decoT').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const els = card.querySelectorAll(`[data-deco="${b.dataset.k}"]`);
+  const show = els[0] && els[0].hasAttribute('hidden');
+  els.forEach(el => show ? el.removeAttribute('hidden') : el.setAttribute('hidden', ''));
+  buildDecos(); fitBig(); save();
+};
+function setShape(s){
+  const a = $('#pfArea');
+  a.className = a.className.replace(/\bshape-\w+/g, '').trim() + ' shape-' + s;
+  $$('#shapes button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  save();
+}
+$('#shapes').innerHTML = SHAPES.map(([s,t]) => `<button class="shape-${s}" data-s="${s}" title="${t}"><i></i></button>`).join('');
+$('#shapes').onclick = e => { const b = e.target.closest('button'); if (b) setShape(b.dataset.s); };
+
+/* =========================================================
+   초기화 · PNG 저장 · 화면 맞춤
+   ========================================================= */
+$('#reset').onclick = () => {
+  if (!confirm('처음 상태로 되돌릴까요? 작업한 내용이 지워져요.')) return;
+  try { localStorage.removeItem(CFG.key); } catch(e){}
+  location.reload();
+};
+$('#save').onclick = async () => {
+  document.activeElement && document.activeElement.blur();
+  getSelection().removeAllRanges(); fmt.hidden = true;
+  const keep = sel; if (sel) sel.classList.remove('sel');
+  card.classList.add('capturing');
+  const btn = $('#save'); btn.textContent = '저장 중…'; btn.disabled = true;
+  try {
+    const url = await htmlToImage.toPng(card, {
+      pixelRatio: 2, width: card.offsetWidth, height: card.offsetHeight,
+      filter: n => !(n.classList && (n.classList.contains('del') || n.classList.contains('no-png')))
+    });
+    const a = document.createElement('a'); a.href = url; a.download = 'profile.png'; a.click();
+  } catch(e){ alert('저장에 실패했어요. GitHub에 올린 주소에서 다시 시도해 주세요.'); }
+  card.classList.remove('capturing');
+  if (keep) keep.classList.add('sel');
+  btn.textContent = '↓ PNG 저장'; btn.disabled = false;
+};
+function fit(){
+  const v = $('#viewer'), st = $('#stage');
+  const W = card.offsetWidth;
+  const s = Math.min(1, (v.clientWidth - (window.innerWidth <= 900 ? 32 : 56)) / W);
+  st.style.transform = `scale(${s})`;
+  st.style.width = W * s + 'px'; st.style.height = card.offsetHeight * s + 'px';
+}
+window.addEventListener('resize', fit);
+
+/* =========================================================
+   시작
+   ========================================================= */
+if (!pairs.children.length){
+  DEFAULT_TYPES.forEach(([k,v]) => addChip(k, v));
+  for (let i = 0; i < CFG.startPairs; i++) pairs.insertAdjacentHTML('beforeend', pairHTML());
+}
+/* 배려리스트: 예전 형식(패널 입력식)을 카드에서 바로 쓰는 형식으로 */
+(() => {
+  const box = careList.closest('.care');
+  box.querySelector('.hd .ko')?.remove();
+  const h = box.querySelector('.hd h3'); if (h && /^\s*Care\s*$/i.test(h.textContent)) h.textContent = '배려리스트';
+  $('#careHint')?.remove();
+  careList.querySelectorAll('li').forEach(li => li.contentEditable = 'true');
+  if (!careList.children.length) careList.innerHTML = '<li contenteditable="true">배려하고 있는 드림캐 이름</li>';
+})();
+/* 예전 저장본: '상단 글씨'가 배지까지 한 번에 껐다 켜던 구조를 나눠요 */
+(() => {
+  const bar = card.querySelector('.cover .bar'); if (!bar || !bar.hasAttribute('data-deco')) return;
+  const off = bar.hasAttribute('hidden');
+  bar.removeAttribute('data-deco'); bar.removeAttribute('hidden');
+  bar.querySelectorAll('.mark, .sub').forEach(el => { el.dataset.deco = 'bar'; if (off) el.setAttribute('hidden',''); });
+  const r = bar.querySelector('.r'); if (r){ r.dataset.deco = 'pills'; if (off) r.setAttribute('hidden',''); }
+})();
+/* 글씨를 쓰다가 헤더·카드 안쪽이 밀려 올라가지 않게 */
+card.addEventListener('scroll', e => { const t = e.target; if (t !== card && t.scrollTop | t.scrollLeft){ t.scrollTop = 0; t.scrollLeft = 0; } }, true);
+card.addEventListener('scroll', () => { card.scrollTop = 0; card.scrollLeft = 0; });
+/* 큰 글씨가 길어지면 헤더 안에 들어가게 크기를 줄여요 */
+function fitBig(){
+  const big = card.querySelector('.cover .big'); if (!big) return;
+  big.querySelectorAll('br').forEach(b => b.replaceWith(' '));
+  const cov = card.querySelector('.cover');
+  big.style.fontSize = '';
+  const msg = cov.querySelector('.msg');
+  const room = msg && !msg.hasAttribute('hidden') ? cov.clientWidth - (msg.offsetLeft + msg.offsetWidth) - 40 : cov.clientWidth * .62;
+  const max = Math.max(260, room), base = parseFloat(getComputedStyle(big).fontSize);
+  let size = base;
+  while (big.scrollWidth > max && size > 36){ size -= 4; big.style.fontSize = size + 'px'; }
+}
+card.addEventListener('input', e => { if (e.target.closest?.('.cover .big')) fitBig(); });
+/* made by 문구는 고정 */
+const credit = card.querySelector('.foot .r');
+if (credit){ credit.removeAttribute('contenteditable'); credit.textContent = CFG.credit || 'made by @Cookie_B_A'; }
+buildPills(); sortChips(); buildTypes(); initNg(); initCareCol(); syncPairs(); syncLists(); buildDecos(); syncCover();
+setMode(pairs.dataset.mode || 'duo');
+setShape(($('#pfArea').className.match(/shape-(\w+)/) || [0,'circle'])[1]);
+setCov(parseInt(card.querySelector('.hero').style.getPropertyValue('--cov')) || 290, true);
+applyTheme(saved.theme || CFG.themes[0].id, saved.over || (saved.custom ? { '--accent': saved.custom } : {}));
+fit();
+})();
+
+</script>
+</body>
+</html>
