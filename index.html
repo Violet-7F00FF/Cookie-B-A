@@ -161,12 +161,20 @@
 .fmt .sws{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .fmt .sws button{min-width:0;width:22px;height:22px;padding:0;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .fmt .sws button:hover{transform:scale(1.12)}
-.fmt .fpb{display:flex;gap:6px;align-items:center}
-.fmt .pick{flex:1;display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;font-weight:600;color:#4e5170;
-  border:1px solid #e6e7f2;border-radius:8px;padding:3px 4px 3px 9px;cursor:pointer;white-space:nowrap}
+.fmt .fpb{display:flex;gap:5px;align-items:center}
+.fmt .pick{flex:1;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#4e5170;height:30px;
+  border:1px solid #e6e7f2;border-radius:8px;padding:0 9px 0 4px;cursor:pointer;white-space:nowrap}
+.fmt .pick:hover{background:#f6f6fb}
 .fmt .pick input{width:24px;height:22px;border:0;padding:0;background:none;cursor:pointer}
-.fmt .nocol{height:30px;font-size:12px;font-weight:600;border:1px solid #e6e7f2 !important;color:#4e5170;white-space:nowrap}
-.fmt .nocol:hover{background:#f6f6fb}
+.fmt .fbtn{height:30px;font-size:12px;font-weight:600;border:1px solid #e6e7f2 !important;color:#4e5170;white-space:nowrap;padding:0 9px}
+.fmt .fbtn:hover{background:#f6f6fb}
+.fmt .sws .nosw{background:#fff linear-gradient(135deg,transparent 46%,#e5484d 46%,#e5484d 54%,transparent 54%)}
+.fmt .mine{min-height:22px;align-items:center}
+.fmt .ms{position:relative;display:inline-flex}
+.fmt .ms i{position:absolute;right:-5px;top:-5px;width:14px;height:14px;border-radius:50%;background:#2b2d45;color:#fff;font:700 10px/14px "Pretendard",sans-serif;
+  text-align:center;font-style:normal;cursor:pointer;opacity:0;transition:opacity .12s}
+.fmt .ms:hover i{opacity:1}
+.fmt .pe{font-size:11.5px;color:#a3a6c4}
 
 /* 비어 있는 글씨 칸 표시 (PNG에는 안 나와요) */
 .card:not(.capturing) [contenteditable]:empty::after{content:"✎ 입력";opacity:.35;font-weight:500;font-size:.85em}
@@ -706,12 +714,16 @@ fmt.innerHTML = `
     <div class="sws">
       <button data-cc="tx-accent" title="테마 포인트 색" style="background:var(--accent)"></button>
       <button data-cc="tx-pink" title="테마 서브 색" style="background:var(--pink)"></button>
+      <button data-cc="none" class="nosw" title="색 없애기"></button>
     </div>
     <p>기본 색</p>
     <div class="sws">${TEXT_COLORS.map(c => `<button data-c="${c}" title="${c}" style="background:${c}"></button>`).join('')}</div>
+    <p>내 팔레트</p>
+    <div class="sws mine" id="myPal"></div>
     <div class="fpb">
-      <label class="pick">직접 고르기 <input type="color" value="#5b5ef0"></label>
-      <button data-cc="none" class="nocol">색 없애기</button>
+      <label class="pick" title="눌러서 색 고르기 (고르는 동안 바로 적용돼요)"><input type="color" value="#5b5ef0"><span>색 고르기</span></label>
+      <button data-x="apply" class="fbtn" title="고른 색을 글씨에 적용">적용</button>
+      <button data-x="addpal" class="fbtn" title="고른 색을 내 팔레트에 저장">＋ 내 팔레트</button>
     </div>
   </div>`;
 document.body.appendChild(fmt);
@@ -1124,7 +1136,15 @@ function setColor(kind, value){
   save(); document.dispatchEvent(new Event('selectionchange'));
 }
 fmt.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del){ myPal = myPal.filter(c => c !== del.dataset.del); renderPal(); return; }
   const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.x === 'apply'){ applyPick(); return; }
+  if (b.dataset.x === 'addpal'){
+    const c = pickIn.value.toLowerCase();
+    if (!myPal.includes(c)){ myPal.push(c); if (myPal.length > MAX_PAL) myPal.shift(); renderPal(); }
+    return;
+  }
   if (b.dataset.x === 'color'){ const fp = fmt.querySelector('.fp'); fp.hidden = !fp.hidden; if (lastX) placeFmt(lastX.r); return; }
   if (b.dataset.cc){ setColor(b.dataset.cc === 'none' ? 'none' : 'class', b.dataset.cc); return; }
   if (b.dataset.c){ setColor('style', b.dataset.c); return; }
@@ -1142,10 +1162,26 @@ fmt.addEventListener('click', e => {
   save();
   document.dispatchEvent(new Event('selectionchange'));
 });
-fmt.querySelector('.pick input').addEventListener('change', e => {
-  if (lastX){ const s = getSelection(); s.removeAllRanges(); s.addRange(lastX.r); }
-  setColor('style', e.target.value);
-});
+/* 색 고르기: 고르는 동안 바로 적용, 같은 색이면 '적용' 버튼으로 */
+const pickIn = fmt.querySelector('.pick input');
+function applyPick(){
+  if (lastX && document.contains(lastX.ed)){ const s = getSelection(); s.removeAllRanges(); s.addRange(lastX.r); }
+  setColor('style', pickIn.value);
+}
+pickIn.addEventListener('input', applyPick);
+pickIn.addEventListener('change', applyPick);
+
+/* 내 팔레트 (이 브라우저에 저장돼요) */
+const PKEY = CFG.key + '-palette', MAX_PAL = 24;
+let myPal = [];
+try { myPal = JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch(e){}
+function renderPal(){
+  $('#myPal').innerHTML = myPal.length
+    ? myPal.map(c => `<span class="ms"><button data-c="${c}" title="${c}" style="background:${c}"></button><i data-del="${c}" title="팔레트에서 빼기">×</i></span>`).join('')
+    : '<span class="pe">색을 고른 뒤 ＋ 내 팔레트를 누르면 여기 저장돼요.</span>';
+  try { localStorage.setItem(PKEY, JSON.stringify(myPal)); } catch(e){}
+}
+renderPal();
 window.addEventListener('scroll', e => { if (!fmt.contains(e.target)) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; } }, true);
 
 /* =========================================================
