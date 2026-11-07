@@ -342,6 +342,7 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
 .mid{display:grid;grid-template-columns:1.35fr 1fr 1fr;grid-template-areas:"info type ng" "readme readme care";gap:18px}
 .infob{grid-area:info}.typeb{grid-area:type}.ng{grid-area:ng}.readme{grid-area:readme}.care{grid-area:care}
 .mid>.blk{min-height:200px}
+.mid>.readme,.mid>.care{min-height:0}
 .blk{padding:18px 20px;min-height:0}
 .hd{display:flex;align-items:center;gap:8px;margin-bottom:14px}
 .hd .ic{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font:600 12px var(--en);color:var(--accent);background:var(--soft)}
@@ -492,7 +493,7 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
   <!-- 가운데 -->
   <section class="mid">
     <div class="blk box infob">
-      <div class="hd"><span class="ic">✦</span><h3 contenteditable="true">Info</h3><span class="ko" contenteditable="true">소개</span><span class="no">01</span></div>
+      <div class="hd"><span class="ic">✦</span><h3 contenteditable="true">INFO</h3><span class="ko" contenteditable="true">소개</span><span class="no">01</span></div>
       <ul class="info" id="info">
         <li contenteditable="true"><b>주로 쓰는 플랫폼</b>을 적어주세요. 간간이 쓰는 곳도 함께!</li>
         <li contenteditable="true">어떤 계정인지, <b>주로 올리는 것</b>을 적어주세요.</li>
@@ -501,19 +502,21 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
       </ul>
     </div>
     <div class="blk box typeb">
-      <div class="hd"><span class="ic">#</span><h3 contenteditable="true">Type</h3><span class="ko" contenteditable="true">성향</span><span class="no">02</span></div>
+      <div class="hd"><span class="ic">#</span><h3 contenteditable="true">TYPE</h3><span class="ko" contenteditable="true">성향</span><span class="no">02</span></div>
       <div class="chips" id="chips"></div>
     </div>
     <div class="blk box ng">
       <div class="hd"><span class="ic">✕</span><h3 contenteditable="true">NG</h3><span class="ko" contenteditable="true">지양해 주세요</span><span class="no">03</span></div>
-      <ul id="ngList"></ul>
+      <ul id="ngList">
+        <li contenteditable="true">지양하는 것을 적어주세요</li>
+      </ul>
     </div>
     <div class="blk box readme">
-      <div class="hd"><span class="ic">✎</span><h3 contenteditable="true">Read me</h3><span class="ko" contenteditable="true">읽어 주세요</span><span class="no">04</span></div>
+      <div class="hd"><span class="ic">✎</span><h3 contenteditable="true">READ ME</h3><span class="ko" contenteditable="true">읽어 주세요</span><span class="no">04</span></div>
       <p class="rd" id="readme" contenteditable="true">팔로우 전에 읽어주면 좋은 이야기를 자유롭게 적어주세요.<br>Enter로 줄을 바꿀 수 있어요.</p>
     </div>
     <div class="blk box care">
-      <div class="hd"><span class="ic">♡</span><h3 contenteditable="true">배려리스트</h3><span class="no">05</span></div>
+      <div class="hd"><span class="ic">♡</span><h3 contenteditable="true">배려리스트</h3><span class="ko" contenteditable="true">배려하고 있어요</span><span class="no">05</span></div>
       <ul id="careList">
         <li contenteditable="true">배려하고 있는 드림캐 이름</li>
       </ul>
@@ -575,7 +578,7 @@ window.MAKER = {
    성향표 메이커 기능
    ✏️ 태그 버튼 목록은 여기서 바꾸면 돼요
    ========================================================= */
-const TYPE_PRESETS = ['성인','미성년','ONLY','CBC ONLY','OPEN','리버시블','논리버시블','제작','소비','RT','마음','인용','타임대화','사담','앓이','로그 공유','배포','연성','AI이미지'];
+const TYPE_PRESETS = ['성인','미성년','ONLY','CBC ONLY','OPEN','리버시블','논리버시블','제작','소비','RT','마음','인용','타임대화','사담','앓이','로그 공유','배포','연성','AI 생성물'];
 const DEFAULT_TYPES = [];   // 처음엔 아무 태그도 없어요
 const SHAPES = [['circle','원형'],['square','사각'],['round','둥근사각'],['arch','아치'],
                 ['hexa','육각'],['octa','팔각'],['diamond','마름모'],['flower','별꽃']];
@@ -585,7 +588,7 @@ const TINTS = [['none','없음'],['light','테마색 살짝'],['strong','테마�
 
 (function(){
 const CFG = Object.assign({ key:'persona', startPairs:4, maxPairs:8 }, window.MAKER || {});
-const MAX_NOW = 4, MAX_INFO = 7, MAX_CARE = 30;
+const MAX_NOW = 4, MAX_INFO = 7, MAX_CARE = 30, MAX_NG = 30;
 const COLOR_KEYS = [['--accent','포인트'],['--pink','서브'],['--bg','배경'],['--box','카드'],['--ink','글씨'],
                     ['--c1','헤더 왼쪽'],['--c2','헤더 가운데'],['--c3','헤더 오른쪽'],['--cover-ink','헤더 글씨']];
 const $ = s => document.querySelector(s);
@@ -664,11 +667,10 @@ $('#panel').innerHTML = `
     <p class="hint">카드의 태그를 누르면 색이 바뀌어요.</p>
   </div></section>
 
-  <section class="grp" data-g="ng"><h4>NG 항목</h4><div class="gb">
+  <section class="grp" data-g="ng"><h4>NG 항목 <span class="n" id="ngN"></span></h4><div class="gb">
     <div class="row seg" id="ngCol" style="margin-bottom:8px">${btns([['1','1줄로 쓰기'],['2','2칸으로 나누기']],'v')}</div>
-    <div class="toggles rm" id="ngT"></div>
-    <div class="add"><input id="ngIn" placeholder="NG 항목 입력 후 Enter" maxlength="30"><button id="ngAdd">추가</button></div>
-    <p class="hint">위 목록에서 누르면 지워져요.</p>
+    <div class="row"><button class="btn" id="ngMinus">− 줄 삭제</button><button class="btn" id="ngPlus">+ 줄 추가</button></div>
+    <p class="hint">카드의 NG 칸에 바로 적어요. Enter를 누르면 다음 줄이 생기고, Shift+Enter는 같은 줄 안에서 줄바꿈이에요.</p>
   </div></section>
 
   <section class="grp" data-g="care"><h4>배려리스트 <span class="n" id="careN"></span></h4><div class="gb">
@@ -1035,9 +1037,9 @@ card.addEventListener('keydown', e => {
   e.preventDefault();
   if (ed.closest('.big, .pill, .name, .handle')){ ed.blur(); return; }
   if (e.shiftKey || ed.id === 'readme'){ document.execCommand('insertLineBreak'); return; }
-  const list = ed.closest('#info, #nowList, #careList');
+  const list = ed.closest('#info, #nowList, #careList, #ngList');
   if (list && ed.tagName === 'LI'){
-    const max = list.id === 'info' ? MAX_INFO : list.id === 'careList' ? MAX_CARE : MAX_NOW;
+    const max = list.id === 'info' ? MAX_INFO : list.id === 'careList' ? MAX_CARE : list.id === 'ngList' ? MAX_NG : MAX_NOW;
     if (list.children.length >= max) return;
     const li = document.createElement('li'); li.contentEditable = 'true';
     ed.after(li); li.focus(); syncLists(); save(); return;
@@ -1053,7 +1055,7 @@ card.addEventListener('keydown', e => {
 /* 빈 줄에서 Backspace → 줄 지우기 */
 card.addEventListener('keydown', e => {
   const ed = e.target.closest?.('li[contenteditable]'); if (!ed || e.key !== 'Backspace' || ed.textContent !== '') return;
-  const list = ed.closest('#info, #nowList, #careList'); if (!list || list.children.length <= 1) return;
+  const list = ed.closest('#info, #nowList, #careList, #ngList'); if (!list || list.children.length <= 1) return;
   e.preventDefault();
   const prev = ed.previousElementSibling || ed.nextElementSibling;
   ed.remove(); syncLists(); save();
@@ -1306,7 +1308,13 @@ function bindAdd(inp, btn, fn){
   $(btn).onclick = go; $(inp).onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) go(); };
 }
 bindAdd('#typeIn', '#typeAdd', v => { addChip(v); buildTypes(); });
-const initNg = listUI(() => ngList, 'ng', 'NG');
+function setNgCol(n, silent){
+  ngList.classList.toggle('cols2', n === 2);
+  $$('#ngCol button').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
+  if (!silent) save();
+}
+$('#ngCol').onclick = e => { const b = e.target.closest('button'); if (b) setNgCol(+b.dataset.v); };
+const initNg = () => setNgCol(ngList.classList.contains('cols2') ? 2 : 1, true);
 
 /* =========================================================
    INFO · NOW 줄
@@ -1319,6 +1327,8 @@ function syncLists(){
   $('#nowPlus').disabled = now.children.length >= MAX_NOW; $('#nowMinus').disabled = now.children.length <= 1;
   $('#careN').textContent = careList.children.length + '줄';
   $('#careMinus').disabled = careList.children.length <= 1;
+  $('#ngN').textContent = ngList.children.length + '줄';
+  $('#ngMinus').disabled = ngList.children.length <= 1; $('#ngPlus').disabled = ngList.children.length >= MAX_NG;
 }
 function addLine(ul, max, text){
   if (ul.children.length >= max) return;
@@ -1330,6 +1340,8 @@ $('#infoMinus').onclick = () => { const ul = $('#info'); if (ul.children.length 
 $('#nowPlus').onclick = () => addLine($('#nowList'), MAX_NOW, '장르 · 캐릭터 이름');
 $('#nowMinus').onclick = () => { const ul = $('#nowList'); if (ul.children.length > 1){ ul.lastElementChild.remove(); syncLists(); save(); } };
 $('#carePlus').onclick = () => addLine(careList, MAX_CARE, '배려하고 있는 드림캐 이름');
+$('#ngPlus').onclick = () => addLine(ngList, MAX_NG, '지양하는 것을 적어주세요');
+$('#ngMinus').onclick = () => { if (ngList.children.length > 1){ ngList.lastElementChild.remove(); syncLists(); save(); } };
 $('#careMinus').onclick = () => { if (careList.children.length > 1){ careList.lastElementChild.remove(); syncLists(); save(); } };
 function setCareCol(n, silent){
   careList.classList.toggle('cols2', n === 2);
@@ -1492,11 +1504,22 @@ if (!pairs.children.length){
 /* 배려리스트: 예전 형식(패널 입력식)을 카드에서 바로 쓰는 형식으로 */
 (() => {
   const box = careList.closest('.care');
-  box.querySelector('.hd .ko')?.remove();
-  const h = box.querySelector('.hd h3'); if (h && /^\s*Care\s*$/i.test(h.textContent)) h.textContent = '배려리스트';
+  const h = box.querySelector('.hd h3'); if (h && /^\s*Care\s*$/i.test(h.textContent)){ h.textContent = '배려리스트'; box.querySelector('.hd .ko')?.remove(); }
+  if (!box.querySelector('.hd .ko')) h.insertAdjacentHTML('afterend', '<span class="ko" contenteditable="true">배려하고 있어요</span>');
   $('#careHint')?.remove();
   careList.querySelectorAll('li').forEach(li => li.contentEditable = 'true');
   if (!careList.children.length) careList.innerHTML = '<li contenteditable="true">배려하고 있는 드림캐 이름</li>';
+})();
+/* NG: 패널 입력식 → 카드에서 바로 쓰기 */
+(() => {
+  $('#ngHint')?.remove();
+  ngList.querySelectorAll('li').forEach(li => li.contentEditable = 'true');
+  if (!ngList.children.length) ngList.innerHTML = '<li contenteditable="true">지양하는 것을 적어주세요</li>';
+})();
+/* 제목 대문자 · 태그 이름 바꾸기 */
+(() => {
+  card.querySelectorAll('.mid .hd h3').forEach(h => { if (/^\s*(info|type|read me)\s*$/i.test(h.textContent)) h.textContent = h.textContent.trim().toUpperCase(); });
+  const c = findChip('AI이미지'); if (c){ c.dataset.k = c.textContent = 'AI 생성물'; sortChips(); }
 })();
 /* 예전 저장본: '상단 글씨'가 배지까지 한 번에 껐다 켜던 구조를 나눠요 */
 (() => {
