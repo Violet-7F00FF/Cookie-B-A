@@ -1087,7 +1087,22 @@ document.addEventListener('selectionchange', () => {
   fmt.querySelectorAll('.fr [data-w]').forEach(b => b.classList.toggle('on', !!at.closest('.' + b.dataset.w)));
   const col = at.closest('.tx-c, .tx-accent, .tx-pink');
   fmt.querySelector('.cbar').style.background = col && x.ed.contains(col) ? getComputedStyle(col).color : 'var(--ink, #1c1e3b)';
+  if (document.activeElement !== pickIn) pickIn.value = selColor(x.r) || pickIn.value;
 });
+/* 드래그한 글씨의 실제 색 → 색 고르기에 반영 */
+function selColor(r){
+  let el = null;
+  const root = r.commonAncestorContainer;
+  if (root.nodeType === 3) el = root.parentElement;
+  else {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.data.trim() && r.intersectsNode(n) ? 1 : 3 });
+    const t = w.nextNode(); el = t ? t.parentElement : root;
+  }
+  const c = getComputedStyle(el).color, n = c.match(/[\d.]+/g);
+  if (!n) return null;
+  const k = c.startsWith('color(') ? 255 : 1;
+  return '#' + n.slice(0,3).map(v => Math.round(Math.min(255, v * k)).toString(16).padStart(2,'0')).join('');
+}
 fmt.addEventListener('mousedown', e => { if (!e.target.closest('.pick')) e.preventDefault(); });
 function unwrap(span){ span.replaceWith(...span.childNodes); }
 function reselect(node){ const s = getSelection(); s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(node); s.addRange(nr); }
