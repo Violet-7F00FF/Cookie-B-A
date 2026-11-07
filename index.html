@@ -104,7 +104,7 @@
 /* 사진 표시 (크기/위치 조절용) */
 .adj .img{overflow:hidden}
 .adj .img::before{content:"";position:absolute;inset:0;pointer-events:none;
-  background:var(--img) var(--px,50%) var(--py,50%)/cover no-repeat;transform:scale(var(--z,1))}
+  background:var(--img) center/cover no-repeat;transform:translate(var(--tx,0%),var(--ty,0%)) scale(var(--z,1))}
 .adj .img[data-fit="contain"]::before{background-size:contain}
 .adj .img[data-flt="bright"]::before{filter:brightness(1.12) saturate(1.06)}
 .adj .img[data-flt="dark"]::before{filter:brightness(.78)}
@@ -193,6 +193,15 @@
 .pillrow .grip:hover{background:#f2f2f8;color:#4e5170}
 .pillrow.dragging{opacity:.9;transform:scale(1.02);box-shadow:0 8px 20px -8px rgba(30,30,80,.35);border-radius:20px;background:#fff;position:relative;z-index:2}
 .pillrow.dragging .grip{cursor:grabbing}
+
+/* 사진 옮길 때 중앙선 */
+.guide{position:absolute;inset:0;pointer-events:none;z-index:6}
+.guide i{position:absolute;opacity:0;transition:opacity .08s}
+.guide .v{left:50%;top:0;bottom:0;width:0;border-left:1.5px dashed #ff4fa0;transform:translateX(-.75px)}
+.guide .h{top:50%;left:0;right:0;height:0;border-top:1.5px dashed #ff4fa0;transform:translateY(-.75px)}
+.guide.sv .v,.guide.sh .h{opacity:1}
+.guide::after{content:"";position:absolute;inset:0;outline:1.5px solid rgba(255,79,160,.35);outline-offset:-1.5px}
+.adj .img[data-up]:not(.empty){touch-action:none}
 
 </style>
 <style>
@@ -597,10 +606,10 @@ $('#panel').innerHTML = `
     <div id="covCtl">
       <p class="sub">사진 맞춤</p>
       <div class="row seg" id="covFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
-      <label class="sl"><span>높낮이</span><input type="range" id="covY" min="0" max="100" step="1"><b id="covYv"></b></label>
-      <label class="sl"><span>좌우</span><input type="range" id="covX" min="0" max="100" step="1"><b id="covXv"></b></label>
+      <label class="sl"><span>상하</span><input type="range" id="covY" min="-100" max="100" step="1"><b id="covYv"></b></label>
+      <label class="sl"><span>좌우</span><input type="range" id="covX" min="-100" max="100" step="1"><b id="covXv"></b></label>
       <label class="sl"><span>크기</span><input type="range" id="covZ" min="50" max="300" step="1"><b id="covZv"></b></label>
-      <p class="hint" style="margin-top:4px">헤더 사진을 직접 끌어서 옮기거나, 휠로 확대할 수도 있어요.</p>
+      <p class="hint" style="margin-top:4px">헤더 사진을 직접 끌어서 원하는 곳에 옮기거나, 휠로 확대할 수 있어요. 가운데에 오면 중앙선이 떠요.</p>
       <p class="sub">보정</p><div class="fltgrid" id="covFlt">${btns(FILTERS,'v')}</div>
       <p class="sub">색 덮기</p><div class="fltgrid" id="covTint">${btns(TINTS,'v')}</div>
     </div>
@@ -618,8 +627,8 @@ $('#panel').innerHTML = `
     <p class="hint" id="adjHint" style="margin-top:0">프로필이나 페어 사진을 클릭하면 여기서 조절할 수 있어요.</p>
     <div id="adjCtl" hidden>
       <div class="row seg" id="adjFit">${btns([['cover','꽉 채우기'],['contain','전체 보이기']],'v')}</div>
-      <label class="sl"><span>높낮이</span><input type="range" id="adjY" min="0" max="100" step="1"><b id="adjYv"></b></label>
-      <label class="sl"><span>좌우</span><input type="range" id="adjX" min="0" max="100" step="1"><b id="adjXv"></b></label>
+      <label class="sl"><span>상하</span><input type="range" id="adjY" min="-100" max="100" step="1"><b id="adjYv"></b></label>
+      <label class="sl"><span>좌우</span><input type="range" id="adjX" min="-100" max="100" step="1"><b id="adjXv"></b></label>
       <label class="sl"><span>크기</span><input type="range" id="adjZ" min="50" max="300" step="1"><b id="adjZv"></b></label>
       <p class="sub">보정</p><div class="fltgrid" id="adjFlt">${btns(FILTERS,'v')}</div>
       <div class="row" style="margin-top:10px"><button class="btn" id="adjSwap">사진 바꾸기</button><button class="btn" id="adjReset">원래대로</button></div>
@@ -712,7 +721,8 @@ try {
 card.querySelectorAll('.sel').forEach(el => el.classList.remove('sel'));
 card.querySelectorAll('[contenteditable] img').forEach(i => i.replaceWith(document.createTextNode(i.alt || '')));
 /* 예전 버전의 위치값(translate)을 새 방식으로 정리 */
-card.querySelectorAll('.img').forEach(el => { el.style.removeProperty('--x'); el.style.removeProperty('--y'); });
+card.querySelectorAll('.img').forEach(el => ['--x','--y','--px','--py'].forEach(k => el.style.removeProperty(k)));
+card.querySelectorAll('.guide').forEach(g => g.remove());
 
 const chips = $('#chips'), ngList = $('#ngList'), careList = $('#careList'), pairs = $('#pairs'), cover = card.querySelector('.cover-bg');
 
@@ -832,8 +842,8 @@ function controls(p, getEl){
   const show = () => {
     const el = getEl(); if (!el) return;
     $(`#${p}Z`).value = Math.round(num(el,'--z',1) * 100); $(`#${p}Zv`).textContent = $(`#${p}Z`).value + '%';
-    $(`#${p}X`).value = num(el,'--px',50); $(`#${p}Xv`).textContent = $(`#${p}X`).value;
-    $(`#${p}Y`).value = num(el,'--py',50); $(`#${p}Yv`).textContent = $(`#${p}Y`).value;
+    $(`#${p}X`).value = Math.round(num(el,'--tx',0)); $(`#${p}Xv`).textContent = $(`#${p}X`).value;
+    $(`#${p}Y`).value = Math.round(num(el,'--ty',0)); $(`#${p}Yv`).textContent = $(`#${p}Y`).value;
     $$(`#${p}Fit button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.fit || 'cover')));
     $$(`#${p}Flt button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.flt || 'none')));
     if ($(`#${p}Tint`)) $$(`#${p}Tint button`).forEach(b => b.classList.toggle('on', b.dataset.v === (el.dataset.tint || 'none')));
@@ -841,8 +851,8 @@ function controls(p, getEl){
   const set = () => {
     const el = getEl(); if (!el) return;
     el.style.setProperty('--z', $(`#${p}Z`).value / 100);
-    el.style.setProperty('--px', $(`#${p}X`).value + '%');
-    el.style.setProperty('--py', $(`#${p}Y`).value + '%');
+    el.style.setProperty('--tx', $(`#${p}X`).value + '%');
+    el.style.setProperty('--ty', $(`#${p}Y`).value + '%');
     show(); save();
   };
   [`#${p}Z`,`#${p}X`,`#${p}Y`].forEach(id => $(id).oninput = set);
@@ -855,7 +865,7 @@ function controls(p, getEl){
   if ($(`#${p}Tint`)) data(`#${p}Tint`, 'tint', 'none');
   return show;
 }
-const clearImg = el => { ['--img','--z','--px','--py'].forEach(k => el.style.removeProperty(k)); ['fit','flt','tint'].forEach(k => delete el.dataset[k]); el.classList.add('empty'); };
+const clearImg = el => { ['--img','--z','--tx','--ty'].forEach(k => el.style.removeProperty(k)); ['fit','flt','tint'].forEach(k => delete el.dataset[k]); el.classList.add('empty'); };
 
 /* 헤더 사진 */
 const showCov = controls('cov', () => cover);
@@ -890,7 +900,7 @@ function select(el){
   el.classList.add('sel'); showAdj(); openGroup('photo');
 }
 $('#adjSwap').onclick = () => { if (sel) pick(sel); };
-$('#adjReset').onclick = () => { if (!sel) return; ['--z','--px','--py'].forEach(k => sel.style.removeProperty(k)); ['fit','flt'].forEach(k => delete sel.dataset[k]); showAdj(); save(); };
+$('#adjReset').onclick = () => { if (!sel) return; ['--z','--tx','--ty'].forEach(k => sel.style.removeProperty(k)); ['fit','flt'].forEach(k => delete sel.dataset[k]); showAdj(); save(); };
 $('#adjDel').onclick = () => { if (!sel) return; clearImg(sel); select(null); save(); };
 $('#adjDone').onclick = () => select(null);
 
@@ -904,23 +914,34 @@ card.addEventListener('click', e => {
   select(t);
 });
 
-/* 사진을 끌어서 옮기기 + 휠로 확대 */
+/* 사진을 끌어서 옮기기 (맞춤과 상관없이 자유롭게) + 가운데에 오면 중앙선 + 휠로 확대 */
 const movable = el => el && !el.classList.contains('empty') && (el === cover || el === sel);
+const SNAP = 1.5;   // 가운데에서 이만큼(%) 안쪽이면 딱 붙어요
 card.addEventListener('pointerdown', e => {
   const el = e.target.closest('[data-up]');
   if (!movable(el) || e.target.closest('[contenteditable]')) return;
+  e.preventDefault();
   const r = el.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
-  const px0 = num(el,'--px',50), py0 = num(el,'--py',50);
+  const tx0 = num(el,'--tx',0), ty0 = num(el,'--ty',0);
+  const guide = document.createElement('div'); guide.className = 'guide no-png';
+  guide.innerHTML = '<i class="v"></i><i class="h"></i>'; el.appendChild(guide);
   dragMoved = false;
   const move = ev => {
     const dx = ev.clientX - sx, dy = ev.clientY - sy;
     if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved = true;
-    el.style.setProperty('--px', Math.max(0, Math.min(100, px0 - dx / r.width * 100)).toFixed(1) + '%');
-    el.style.setProperty('--py', Math.max(0, Math.min(100, py0 - dy / r.height * 100)).toFixed(1) + '%');
+    let tx = tx0 + dx / r.width * 100, ty = ty0 + dy / r.height * 100;
+    const sv = Math.abs(tx) < SNAP, sh = Math.abs(ty) < SNAP;
+    if (sv) tx = 0; if (sh) ty = 0;
+    guide.classList.toggle('sv', sv); guide.classList.toggle('sh', sh);
+    el.style.setProperty('--tx', tx.toFixed(1) + '%');
+    el.style.setProperty('--ty', ty.toFixed(1) + '%');
     el === cover ? showCov() : showAdj();
   };
-  const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); if (dragMoved) save(); };
-  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  const up = () => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    guide.remove(); if (dragMoved) save();
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 });
 card.addEventListener('wheel', e => {
   const el = e.target.closest('[data-up]');
