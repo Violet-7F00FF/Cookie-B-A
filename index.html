@@ -162,10 +162,20 @@
 .fmt .sws button{min-width:0;width:22px;height:22px;padding:0;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .fmt .sws button:hover{transform:scale(1.12)}
 .fmt .fpb{display:flex;gap:5px;align-items:center}
-.fmt .pick{flex:1;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#4e5170;height:30px;
-  border:1px solid #e6e7f2;border-radius:8px;padding:0 9px 0 4px;cursor:pointer;white-space:nowrap}
-.fmt .pick:hover{background:#f6f6fb}
-.fmt .pick input{width:24px;height:22px;border:0;padding:0;background:none;cursor:pointer}
+.fmt .pick{flex:1;justify-content:flex-start;gap:7px;font-size:12px;font-weight:600;color:#4e5170;height:30px;border:1px solid #e6e7f2 !important;padding:0 8px 0 4px}
+.fmt .pick:hover,.fmt .pick.on{background:#f6f6fb}
+.fmt .pv{display:block;width:22px;height:22px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.fmt .cpk{position:absolute;top:0;right:calc(100% + 8px);width:220px;padding:10px;border-radius:14px;background:#fff;border:1px solid #e6e7f2;
+  box-shadow:0 12px 30px -12px rgba(40,40,110,.35)}
+.fmt .cpk.right{right:auto;left:calc(100% + 8px)}
+.fmt .cpk .sv{position:relative;height:140px;border-radius:9px;cursor:crosshair;touch-action:none}
+.fmt .cpk .hue{position:relative;height:12px;margin:10px 0;border-radius:6px;cursor:pointer;touch-action:none;
+  background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.fmt .cpk .th{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 1px 4px rgba(0,0,0,.3);transform:translate(-50%,-50%);pointer-events:none}
+.fmt .cpk .hue .th{top:50%}
+.fmt .cpk .hexr{display:flex;align-items:center;gap:7px}
+.fmt .cpk .hex{flex:1;min-width:0;height:28px;border:1px solid #e6e7f2;border-radius:8px;padding:0 8px;font:600 12px "Pretendard",monospace;color:#2b2d45;text-transform:lowercase}
+.fmt .cpk .hex:focus{outline:2px solid color-mix(in srgb,var(--p-accent2,#5b5ef0) 40%,transparent);border-color:transparent}
 .fmt .fbtn{height:30px;font-size:12px;font-weight:600;border:1px solid #e6e7f2 !important;color:#4e5170;white-space:nowrap;padding:0 9px}
 .fmt .fbtn:hover{background:#f6f6fb}
 .fmt .sws .nosw{background:#fff linear-gradient(135deg,transparent 46%,#e5484d 46%,#e5484d 54%,transparent 54%)}
@@ -353,6 +363,7 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
 .info li{list-style:none;position:relative;padding:3px 0 3px 16px;font:500 14px/1.55 var(--ko);letter-spacing:-.025em}
 .info li::before{content:"";position:absolute;left:0;top:8px;width:10px;height:10px;background:var(--mid);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
 .info b{color:var(--ink);font-weight:700}
+.info :is(.tx-c,.tx-accent,.tx-pink) b{color:inherit}
 
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{font:600 13.5px var(--ko);letter-spacing:-.02em;padding:7px 14px;border-radius:30px;cursor:pointer;user-select:none;color:var(--text);background:var(--chip)}
@@ -540,7 +551,7 @@ body{font-family:var(--ko);color:var(--text);-webkit-font-smoothing:antialiased;
 </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js" integrity="sha384-UbfRVKN3/elS1r7JcK2FhmPP+KlJ4CvYwbyYD7tH+uTkbT9bNJr9eJeQ0FoFbAgz" crossorigin="anonymous"></script>
 <script>
 /* =========================================================
    ✏️ 템플릿 색 — 여기서 추가/수정할 수 있어요
@@ -694,6 +705,15 @@ $('#panel').innerHTML = `
 
 /* 글씨 꾸미기 도구 (드래그하면 떠요) */
 const TEXT_COLORS = ['#1c1e3b','#ffffff','#8a8fa8','#e5484d','#f0782a','#eaa800','#2fa866','#2e9fe6','#3157e0','#8a55ee','#ec5f9e','#a0522d'];
+/* 저장본을 다시 불러올 때 실행될 수 있는 것(스크립트·on 속성·javascript: 주소)은 지워요 */
+function clean(root){
+  root.querySelectorAll('script,iframe,object,embed,link,meta,style,base,form,input,textarea,button:not(.del)').forEach(n => n.remove());
+  root.querySelectorAll('*').forEach(el => [...el.attributes].forEach(a => {
+    if (/^on/i.test(a.name) || (/^(href|src|xlink:href|action|formaction)$/i.test(a.name) && !/^#/.test(a.value.trim()))) el.removeAttribute(a.name);
+  }));
+}
+const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+const isHex = v => /^#[0-9a-f]{6}$/i.test(v);
 const fmt = document.createElement('div');
 fmt.className = 'fmt'; fmt.hidden = true;
 fmt.innerHTML = `
@@ -723,10 +743,15 @@ fmt.innerHTML = `
     <p>내 팔레트</p>
     <div class="sws mine" id="myPal"></div>
     <div class="fpb">
-      <label class="pick" title="눌러서 색 고르기 (고르는 동안 바로 적용돼요)"><input type="color" value="#5b5ef0"><span>색 고르기</span></label>
+      <button data-x="pick" class="pick" title="눌러서 색 고르기 (고르는 동안 바로 적용돼요)"><i class="pv"></i><span>색 고르기</span></button>
       <button data-x="apply" class="fbtn" title="고른 색을 글씨에 적용">적용</button>
       <button data-x="addpal" class="fbtn" title="고른 색을 내 팔레트에 저장">＋ 내 팔레트</button>
     </div>
+  </div>
+  <div class="cpk" hidden>
+    <div class="sv"><i class="th"></i></div>
+    <div class="hue"><i class="th"></i></div>
+    <div class="hexr"><i class="pv"></i><input class="hex" maxlength="7" spellcheck="false"></div>
   </div>`;
 document.body.appendChild(fmt);
 
@@ -736,7 +761,7 @@ document.body.appendChild(fmt);
 let saved = {};
 try {
   const d = JSON.parse(localStorage.getItem(CFG.key) || 'null');
-  if (d && d.html){ card.innerHTML = d.html; saved = d; }
+  if (d && d.html){ card.innerHTML = d.html; clean(card); saved = d; }
 } catch(e){}
 card.querySelectorAll('.sel').forEach(el => el.classList.remove('sel'));
 card.querySelectorAll('[contenteditable] img').forEach(i => i.replaceWith(document.createTextNode(i.alt || '')));
@@ -1081,15 +1106,15 @@ function placeFmt(r){
 }
 document.addEventListener('selectionchange', () => {
   const x = selRange();
-  if (!x){ if (!fmtHover) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; } return; }
+  if (!x){ if (!fmtHover) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; togglePicker(false); } return; }
   lastX = { r: x.r.cloneRange(), ed: x.ed };
   fmt.hidden = false; placeFmt(x.r);
   const at = (x.r.startContainer.nodeType === 1 ? x.r.startContainer : x.r.startContainer.parentElement);
-  fmt.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', !!at.closest(b.dataset.t) && x.ed.contains(at.closest(b.dataset.t))));
-  fmt.querySelectorAll('.fr [data-w]').forEach(b => b.classList.toggle('on', !!at.closest('.' + b.dataset.w)));
+  fmt.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', allIn(x, b.dataset.t)));
+  fmt.querySelectorAll('.fr [data-w]').forEach(b => b.classList.toggle('on', allIn(x, '.' + b.dataset.w)));
   const col = at.closest('.tx-c, .tx-accent, .tx-pink');
   fmt.querySelector('.cbar').style.background = col && x.ed.contains(col) ? getComputedStyle(col).color : 'var(--ink, #1c1e3b)';
-  if (document.activeElement !== pickIn) pickIn.value = selColor(x.r) || pickIn.value;
+  if (!pkDrag && document.activeElement !== hexIn){ const c = selColor(x.r); if (c && c !== curHex) setPick(c); }
 });
 /* 드래그한 글씨의 실제 색 → 색 고르기에 반영 */
 function selColor(r){
@@ -1105,7 +1130,7 @@ function selColor(r){
   const k = c.startsWith('color(') ? 255 : 1;
   return '#' + n.slice(0,3).map(v => Math.round(Math.min(255, v * k)).toString(16).padStart(2,'0')).join('');
 }
-fmt.addEventListener('mousedown', e => { if (!e.target.closest('.pick')) e.preventDefault(); });
+fmt.addEventListener('mousedown', e => { if (!e.target.closest('.hex')) e.preventDefault(); });
 function unwrap(span){ span.replaceWith(...span.childNodes); }
 function reselect(node){ const s = getSelection(); s.removeAllRanges(); const nr = document.createRange(); nr.selectNodeContents(node); s.addRange(nr); }
 function wrapRange(x, tag, cls, style){
@@ -1148,7 +1173,7 @@ function setColor(kind, value){
     const s = getSelection(); s.removeAllRanges();
     if (kids.length){ const nr = document.createRange(); nr.setStartBefore(kids[0]); nr.setEndAfter(kids[kids.length-1]); s.addRange(nr); }
   } else { paint(target, kind, value); reselect(target); }
-  x.ed.querySelectorAll('span').forEach(e => { if (!e.textContent) e.remove(); });
+  tidy(x.ed);
   x.ed.normalize();
   save(); document.dispatchEvent(new Event('selectionchange'));
 }
@@ -1158,40 +1183,127 @@ fmt.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.x === 'apply'){ applyPick(); return; }
   if (b.dataset.x === 'addpal'){
-    const c = pickIn.value.toLowerCase();
+    const c = curHex.toLowerCase();
     if (!myPal.includes(c)){ myPal.push(c); if (myPal.length > MAX_PAL) myPal.shift(); renderPal(); }
     return;
   }
-  if (b.dataset.x === 'color'){ const fp = fmt.querySelector('.fp'); fp.hidden = !fp.hidden; if (lastX) placeFmt(lastX.r); return; }
+  if (b.dataset.x === 'color'){ const fp = fmt.querySelector('.fp'); fp.hidden = !fp.hidden; if (fp.hidden) togglePicker(false); if (lastX) placeFmt(lastX.r); if (!cpk.hidden) placePicker(); return; }
   if (b.dataset.cc){ setColor(b.dataset.cc === 'none' ? 'none' : 'class', b.dataset.cc); return; }
-  if (b.dataset.c){ setColor('style', b.dataset.c); return; }
+  if (b.dataset.c){ if (isHex(b.dataset.c)) setColor('style', b.dataset.c); return; }
+  if (b.dataset.x === 'pick'){ togglePicker(); return; }
   const x = selRange(); if (!x) return;
   if (b.dataset.t || b.dataset.w){
-    const tag = b.dataset.t || 'span', cls = b.dataset.w, sel1 = cls ? '.' + cls : tag, r = x.r;
-    const start = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
-    const inside = start.closest(sel1);
-    if (inside && x.ed.contains(inside) && inside !== x.ed && inside.contains(r.endContainer)) unwrap(inside);
-    else wrapRange(x, tag, cls);
+    const tag = b.dataset.t || 'span', cls = b.dataset.w, sel1 = cls ? '.' + cls : tag;
+    allIn(x, sel1) ? stripRange(x, sel1) : wrapRange(x, tag, cls);
   } else if (b.dataset.x === 'clear'){
     const s = getSelection();
     x.ed.querySelectorAll('b,i,u,s,strong,em,font,[class^="tx-"],span[style]').forEach(n => { if (s.containsNode(n, true)) unwrap(n); });
   }
+  tidy(x.ed);
   save();
   document.dispatchEvent(new Event('selectionchange'));
 });
-/* 색 고르기: 고르는 동안 바로 적용, 같은 색이면 '적용' 버튼으로 */
-const pickIn = fmt.querySelector('.pick input');
-function applyPick(){
-  if (lastX && document.contains(lastX.ed)){ const s = getSelection(); s.removeAllRanges(); s.addRange(lastX.r); }
-  setColor('style', pickIn.value);
+/* 선택한 글씨가 전부 이 꾸밈 안에 있는지 */
+function selTexts(r){
+  const root = r.commonAncestorContainer;
+  if (root.nodeType === 3) return [root];
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => n.data.trim() && r.intersectsNode(n) ? 1 : 3 });
+  const out = []; let n; while ((n = w.nextNode())) out.push(n); return out;
 }
-pickIn.addEventListener('input', applyPick);
-pickIn.addEventListener('change', applyPick);
+function allIn(x, sel1){
+  const t = selTexts(x.r);
+  return t.length > 0 && t.every(n => { const a = n.parentElement.closest(sel1); return a && a !== x.ed && x.ed.contains(a); });
+}
+/* 선택한 부분에서만 꾸밈을 벗겨요 (앞뒤 글씨는 그대로) */
+function stripRange(x, sel1){
+  const r = x.r;
+  const box = document.createElement('span');
+  box.appendChild(r.extractContents());
+  box.querySelectorAll(sel1).forEach(unwrap);
+  r.insertNode(box);
+  /* 아직 바깥에서 감싸고 있으면 그 꾸밈을 앞·가운데·뒤로 나눠요 */
+  let outer;
+  while ((outer = box.parentElement.closest(sel1)) && outer !== x.ed && x.ed.contains(outer)){
+    const pre = document.createRange(); pre.setStart(outer, 0); pre.setEndBefore(box);
+    const post = document.createRange(); post.setStartAfter(box); post.setEnd(outer, outer.childNodes.length);
+    const preF = pre.extractContents(), postF = post.extractContents();
+    if (preF.textContent){ const a = outer.cloneNode(false); a.appendChild(preF); outer.before(a); }
+    if (postF.textContent){ const z = outer.cloneNode(false); z.appendChild(postF); outer.after(z); }
+    unwrap(outer);
+  }
+  const kids = [...box.childNodes]; unwrap(box);
+  const s = getSelection(); s.removeAllRanges();
+  if (kids.length){ const nr = document.createRange(); nr.setStartBefore(kids[0]); nr.setEndAfter(kids[kids.length - 1]); s.addRange(nr); }
+}
+/* 빈 꾸밈 태그 정리 */
+function tidy(ed){
+  ed.querySelectorAll('b,i,u,s,strong,em,span').forEach(e => { if (!e.textContent && !e.querySelector('br')) e.remove(); });
+}
+/* 색 고르기: 고르는 동안 바로 적용, 같은 색이면 '적용' 버튼으로 */
+/* 색 고르기: 툴바 왼쪽에 뜨는 자체 팔레트 (선택한 글씨가 풀리지 않아요) */
+const cpk = fmt.querySelector('.cpk'), svBox = cpk.querySelector('.sv'), hueBar = cpk.querySelector('.hue'), hexIn = cpk.querySelector('.hex');
+let curHex = '#5b5ef0', hsv = [239, .62, .94], pkDrag = false;
+function hsv2hex([h, s, v]){
+  const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return '#' + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, '0')).join('');
+}
+function hex2hsv(hex){
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  let h = 0;
+  if (d){ h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
+  return [d ? h : hsv[0], mx ? d / mx : 0, mx];
+}
+function drawPick(){
+  svBox.style.background = `linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,transparent),hsl(${hsv[0]} 100% 50%)`;
+  svBox.firstElementChild.style.cssText = `left:${hsv[1] * 100}%;top:${(1 - hsv[2]) * 100}%;background:${curHex}`;
+  hueBar.firstElementChild.style.cssText = `left:${hsv[0] / 360 * 100}%;background:hsl(${hsv[0]} 100% 50%)`;
+  fmt.querySelectorAll('.pv').forEach(p => p.style.background = curHex);
+  if (document.activeElement !== hexIn) hexIn.value = curHex;
+}
+function setPick(hex){ curHex = hex.toLowerCase(); hsv = hex2hsv(curHex); drawPick(); }
+function restoreSel(){
+  if (!selRange() && lastX && document.contains(lastX.ed)){ const s = getSelection(); s.removeAllRanges(); s.addRange(lastX.r); }
+}
+function applyPick(){ restoreSel(); setColor('style', curHex); }
+function placePicker(){
+  const w = 236, b = fmt.getBoundingClientRect();
+  cpk.classList.toggle('right', b.left < w + 16);   // 왼쪽에 자리가 없을 때만 오른쪽에
+}
+function togglePicker(open = cpk.hidden){
+  cpk.hidden = !open;
+  fmt.querySelector('[data-x="pick"]').classList.toggle('on', open);
+  if (open){ placePicker(); drawPick(); }
+}
+let rafPk = 0;
+function liveApply(){ if (rafPk) return; rafPk = requestAnimationFrame(() => { rafPk = 0; applyPick(); }); }
+function dragPick(el, fn){
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); pkDrag = true;
+    const move = ev => { const r = el.getBoundingClientRect();
+      fn(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height)));
+      curHex = hsv2hex(hsv); drawPick(); liveApply(); };
+    const up = () => { pkDrag = false; removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); move(e);
+  });
+}
+dragPick(svBox, (x, y) => { hsv[1] = x; hsv[2] = 1 - y; });
+dragPick(hueBar, x => { hsv[0] = Math.min(359.9, x * 360); });
+hexIn.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  let v = hexIn.value.trim(); if (!v.startsWith('#')) v = '#' + v;
+  if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + [...v.slice(1)].map(c => c + c).join('');
+  if (isHex(v)){ setPick(v); applyPick(); } else hexIn.value = curHex;
+});
+drawPick();
 
 /* 내 팔레트 (이 브라우저에 저장돼요) */
 const PKEY = CFG.key + '-palette', MAX_PAL = 24;
 let myPal = [];
 try { myPal = JSON.parse(localStorage.getItem(PKEY) || '[]'); } catch(e){}
+if (!Array.isArray(myPal)) myPal = [];
+myPal = myPal.filter(isHex).map(c => c.toLowerCase()).slice(-MAX_PAL);
 function renderPal(){
   $('#myPal').innerHTML = myPal.length
     ? myPal.map(c => `<span class="ms"><button data-c="${c}" title="${c}" style="background:${c}"></button><i data-del="${c}" title="팔레트에서 빼기">×</i></span>`).join('')
@@ -1199,7 +1311,7 @@ function renderPal(){
   try { localStorage.setItem(PKEY, JSON.stringify(myPal)); } catch(e){}
 }
 renderPal();
-window.addEventListener('scroll', e => { if (!fmt.contains(e.target)) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; } }, true);
+window.addEventListener('scroll', e => { if (!fmt.contains(e.target)) { fmt.hidden = true; fmt.querySelector('.fp').hidden = true; togglePicker(false); } }, true);
 
 /* =========================================================
    페어
@@ -1269,7 +1381,7 @@ function syncTypeHint(){
 function buildTypes(){
   syncTypeHint();
   const all = [...new Set([...TYPE_PRESETS, ...[...chips.children].map(c => c.dataset.k)])];
-  $('#typeT').innerHTML = all.map(k => `<button data-k="${k}" class="${findChip(k) ? 'on' : ''}">${k}</button>`).join('');
+  $('#typeT').innerHTML = all.map(k => `<button data-k="${esc(k)}" class="${findChip(k) ? 'on' : ''}">${esc(k)}</button>`).join('');
 }
 $('#typeT').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -1280,27 +1392,6 @@ $('#typeT').onclick = e => {
 /* =========================================================
    NG · 배려 목록 (직접 입력)
    ========================================================= */
-function listUI(getUl, id, label){
-  const sync = () => {
-    const ul = getUl(), h = $('#' + id + 'Hint');
-    if (!ul.children.length){ if (!h) ul.insertAdjacentHTML('afterend', `<p class="empty-hint no-png" id="${id}Hint">왼쪽 패널에서 ${label} 항목을 추가해 주세요.</p>`); }
-    else if (h) h.remove();
-  };
-  const build = () => {
-    const items = [...getUl().children];
-    $('#' + id + 'T').innerHTML = items.length ? items.map((li, i) => `<button data-i="${i}">${li.textContent}</button>`).join('') : '<span class="none">아직 없어요</span>';
-    sync();
-  };
-  $('#' + id + 'T').onclick = e => { const b = e.target.closest('button'); if (!b) return; getUl().children[+b.dataset.i]?.remove(); build(); save(); };
-  const setCol = (n, silent) => {
-    getUl().classList.toggle('cols2', n === 2);
-    $$('#' + id + 'Col button').forEach(b => b.classList.toggle('on', +b.dataset.v === n));
-    if (!silent) save();
-  };
-  $('#' + id + 'Col').onclick = e => { const b = e.target.closest('button'); if (b) setCol(+b.dataset.v); };
-  bindAdd('#' + id + 'In', '#' + id + 'Add', v => { const li = document.createElement('li'); li.textContent = v; getUl().appendChild(li); build(); });
-  return () => { build(); setCol(getUl().classList.contains('cols2') ? 2 : 1, true); };
-}
 
 /* 입력칸 */
 function bindAdd(inp, btn, fn){
@@ -1476,7 +1567,7 @@ function renderAll(){
 function restore(snap){
   const d = JSON.parse(snap);
   select(null); fmt.hidden = true;
-  card.innerHTML = d.html; refs(); fixOldImages();
+  card.innerHTML = d.html; clean(card); refs(); fixOldImages();
   skipHist = true;
   renderAll();
   applyTheme(d.theme, d.over);
